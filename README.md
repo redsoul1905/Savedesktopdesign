@@ -24,7 +24,7 @@ Gemacht für **CachyOS** und andere Arch-basierte Systeme mit KDE Plasma.
 
 ```bash
 sudo pacman -S --needed git python python-pyqt6
-git clone https://github.com/DEIN-BENUTZERNAME/savedesktopdesign.git
+git clone https://github.com/redsoul1905/Savedesktopdesign.git
 cd savedesktopdesign
 ./install.sh
 ```
