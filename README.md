@@ -6,6 +6,8 @@ Works on **Arch-based systems (CachyOS, EndeavourOS …), Ubuntu/Debian and Fedo
 
 🌍 **Languages:** English · Deutsch · Français · Italiano · Español · Português · Türkçe — auto-detects your system language, switchable in the app.
 
+![SaveDesktopDesign screenshot](screenshot.png)
+
 ## What gets backed up?
 
 | Category | Contents |
