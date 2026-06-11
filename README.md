@@ -4,6 +4,8 @@ Sichert dein komplettes **KDE-Plasma-Design von A bis Z in eine einzige Datei** 
 
 Gemacht für **CachyOS** und andere Arch-basierte Systeme mit KDE Plasma.
 
+🌍 **Sprachen:** Deutsch · English · Français · Italiano · Español · Português · Türkçe — automatische Erkennung der Systemsprache, umschaltbar in der App.
+
 ## Was wird gesichert?
 
 | Kategorie | Inhalt |

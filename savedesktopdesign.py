@@ -6,8 +6,11 @@ Wallpaper, Panel-Layouts) sowie Paketlisten (pacman, AUR, Flatpak).
 
 Für CachyOS / Arch-basierte Systeme mit KDE Plasma.
 Benötigt: python-pyqt6  (sudo pacman -S python-pyqt6)
+
+Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe
 """
 
+import io
 import json
 import os
 import shutil
@@ -20,23 +23,382 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QSettings, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-    QMainWindow, QMessageBox, QProgressBar, QPushButton, QTabWidget,
+    QApplication, QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout,
+    QLabel, QMainWindow, QMessageBox, QProgressBar, QPushButton, QTabWidget,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.0"
+VERSION = "1.1"
+
+# ----------------------------------------------------------------------------
+# Übersetzungen / Translations
+# ----------------------------------------------------------------------------
+LANG_NAMES = {
+    "de": "Deutsch", "en": "English", "fr": "Français", "it": "Italiano",
+    "es": "Español", "pt": "Português", "tr": "Türkçe",
+}
+
+TRANSLATIONS: dict[str, dict[str, str]] = {
+    "de": {
+        "app_subtitle": "KDE-Design sichern & laden",
+        "lang_label": "Sprache:",
+        "tab_backup": "Sichern",
+        "tab_restore": "Wiederherstellen",
+        "backup_title": "Komplettes Plasma-Design + Paketlisten in eine Datei sichern",
+        "choose_box": "Was soll gesichert werden?",
+        "cat_plasma": "Plasma- & KWin-Einstellungen",
+        "cat_gtk": "GTK- & Kvantum-Design (Glass etc.)",
+        "cat_themes": "Themes, Icons & Cursor",
+        "cat_fonts": "Schriften",
+        "cat_kwin": "KWin-Skripte & Effekte",
+        "cat_wallpaper": "Wallpaper & Konsole-Profile",
+        "cat_packages": "Paketlisten (pacman / AUR / Flatpak)",
+        "btn_backup": "  Backup erstellen …",
+        "msg_select_one": "Bitte mindestens eine Kategorie auswählen.",
+        "dlg_save": "Backup speichern unter …",
+        "dlg_open": "Backup-Archiv wählen",
+        "dlg_archive_filter": "Archiv (*.tar.gz)",
+        "log_creating": "Backup wird erstellt …",
+        "log_pkg_creating": "  + Paketlisten erzeugen …",
+        "log_skipped": "  ! übersprungen",
+        "done_prefix": "\n✔ Fertig: ",
+        "msg_backup_done": "Backup erstellt:",
+        "err_prefix": "\n✘ Fehler:\n",
+        "msg_backup_failed": "Backup fehlgeschlagen — Details im Protokoll.",
+        "restore_title": "Backup-Archiv laden und Design wiederherstellen",
+        "restore_hint": "1-Klick-Restore: Archiv wählen → Dateien werden zurückkopiert.\n"
+                        "Danach optional Pakete installieren und Plasma neu starten.",
+        "btn_restore": "  Archiv wählen & wiederherstellen …",
+        "btn_packages": "  Pakete installieren (öffnet Terminal)",
+        "btn_plasma": "  Plasma neu starten (Design anwenden)",
+        "mf_created": "Erstellt", "mf_host": "Rechner",
+        "mf_categories": "Kategorien", "mf_packages": "Paketlisten",
+        "yes": "ja", "no": "nein",
+        "msg_confirm_restore": "Dieses Backup wiederherstellen?\nBestehende Einstellungen werden überschrieben.",
+        "log_extracting": "Archiv wird entpackt …",
+        "err_invalid_archive": "Ungültiges Archiv: kein 'home/'-Ordner enthalten.",
+        "log_pkglists_saved": "Paketlisten gespeichert unter: ",
+        "log_fontcache": "Schrift-Cache wird aktualisiert …",
+        "log_restored": "\n✔ Design wiederhergestellt!",
+        "msg_restored_pkg": "Design wiederhergestellt!\n\nJetzt optional Pakete installieren und Plasma neu starten (oder ab- und anmelden), damit alles greift.",
+        "msg_restored": "Design wiederhergestellt!\n\nPlasma neu starten (oder ab- und anmelden), damit alles greift.",
+        "msg_restore_failed": "Restore fehlgeschlagen — Details im Protokoll.",
+        "msg_no_terminal": "Kein Terminal gefunden. Bitte manuell ausführen:\n",
+        "msg_confirm_plasma": "Plasma jetzt neu starten? Der Desktop ist kurz weg.",
+    },
+    "en": {
+        "app_subtitle": "Back up & restore your KDE design",
+        "lang_label": "Language:",
+        "tab_backup": "Back up",
+        "tab_restore": "Restore",
+        "backup_title": "Back up your complete Plasma design + package lists into one file",
+        "choose_box": "What should be backed up?",
+        "cat_plasma": "Plasma & KWin settings",
+        "cat_gtk": "GTK & Kvantum design (Glass etc.)",
+        "cat_themes": "Themes, icons & cursors",
+        "cat_fonts": "Fonts",
+        "cat_kwin": "KWin scripts & effects",
+        "cat_wallpaper": "Wallpapers & Konsole profiles",
+        "cat_packages": "Package lists (pacman / AUR / Flatpak)",
+        "btn_backup": "  Create backup …",
+        "msg_select_one": "Please select at least one category.",
+        "dlg_save": "Save backup as …",
+        "dlg_open": "Choose backup archive",
+        "dlg_archive_filter": "Archive (*.tar.gz)",
+        "log_creating": "Creating backup …",
+        "log_pkg_creating": "  + Generating package lists …",
+        "log_skipped": "  ! skipped",
+        "done_prefix": "\n✔ Done: ",
+        "msg_backup_done": "Backup created:",
+        "err_prefix": "\n✘ Error:\n",
+        "msg_backup_failed": "Backup failed — see log for details.",
+        "restore_title": "Load a backup archive and restore your design",
+        "restore_hint": "One-click restore: pick the archive → files are copied back.\n"
+                        "Then optionally install packages and restart Plasma.",
+        "btn_restore": "  Choose archive & restore …",
+        "btn_packages": "  Install packages (opens a terminal)",
+        "btn_plasma": "  Restart Plasma (apply design)",
+        "mf_created": "Created", "mf_host": "Computer",
+        "mf_categories": "Categories", "mf_packages": "Package lists",
+        "yes": "yes", "no": "no",
+        "msg_confirm_restore": "Restore this backup?\nExisting settings will be overwritten.",
+        "log_extracting": "Extracting archive …",
+        "err_invalid_archive": "Invalid archive: no 'home/' folder found.",
+        "log_pkglists_saved": "Package lists saved to: ",
+        "log_fontcache": "Updating font cache …",
+        "log_restored": "\n✔ Design restored!",
+        "msg_restored_pkg": "Design restored!\n\nOptionally install the packages now, then restart Plasma (or log out and back in) so everything takes effect.",
+        "msg_restored": "Design restored!\n\nRestart Plasma (or log out and back in) so everything takes effect.",
+        "msg_restore_failed": "Restore failed — see log for details.",
+        "msg_no_terminal": "No terminal found. Please run manually:\n",
+        "msg_confirm_plasma": "Restart Plasma now? The desktop will disappear briefly.",
+    },
+    "fr": {
+        "app_subtitle": "Sauvegarder et restaurer votre design KDE",
+        "lang_label": "Langue :",
+        "tab_backup": "Sauvegarder",
+        "tab_restore": "Restaurer",
+        "backup_title": "Sauvegarder l'ensemble du design Plasma + listes de paquets dans un seul fichier",
+        "choose_box": "Que faut-il sauvegarder ?",
+        "cat_plasma": "Paramètres Plasma & KWin",
+        "cat_gtk": "Design GTK & Kvantum (Glass, etc.)",
+        "cat_themes": "Thèmes, icônes et curseurs",
+        "cat_fonts": "Polices",
+        "cat_kwin": "Scripts et effets KWin",
+        "cat_wallpaper": "Fonds d'écran et profils Konsole",
+        "cat_packages": "Listes de paquets (pacman / AUR / Flatpak)",
+        "btn_backup": "  Créer une sauvegarde …",
+        "msg_select_one": "Veuillez sélectionner au moins une catégorie.",
+        "dlg_save": "Enregistrer la sauvegarde sous …",
+        "dlg_open": "Choisir l'archive de sauvegarde",
+        "dlg_archive_filter": "Archive (*.tar.gz)",
+        "log_creating": "Création de la sauvegarde …",
+        "log_pkg_creating": "  + Génération des listes de paquets …",
+        "log_skipped": "  ! ignoré",
+        "done_prefix": "\n✔ Terminé : ",
+        "msg_backup_done": "Sauvegarde créée :",
+        "err_prefix": "\n✘ Erreur :\n",
+        "msg_backup_failed": "Échec de la sauvegarde — détails dans le journal.",
+        "restore_title": "Charger une archive et restaurer le design",
+        "restore_hint": "Restauration en un clic : choisissez l'archive → les fichiers sont recopiés.\n"
+                        "Ensuite, installez éventuellement les paquets et redémarrez Plasma.",
+        "btn_restore": "  Choisir l'archive et restaurer …",
+        "btn_packages": "  Installer les paquets (ouvre un terminal)",
+        "btn_plasma": "  Redémarrer Plasma (appliquer le design)",
+        "mf_created": "Créée", "mf_host": "Ordinateur",
+        "mf_categories": "Catégories", "mf_packages": "Listes de paquets",
+        "yes": "oui", "no": "non",
+        "msg_confirm_restore": "Restaurer cette sauvegarde ?\nLes paramètres existants seront écrasés.",
+        "log_extracting": "Extraction de l'archive …",
+        "err_invalid_archive": "Archive non valide : aucun dossier « home/ ».",
+        "log_pkglists_saved": "Listes de paquets enregistrées dans : ",
+        "log_fontcache": "Mise à jour du cache des polices …",
+        "log_restored": "\n✔ Design restauré !",
+        "msg_restored_pkg": "Design restauré !\n\nInstallez éventuellement les paquets, puis redémarrez Plasma (ou déconnectez-vous et reconnectez-vous) pour tout appliquer.",
+        "msg_restored": "Design restauré !\n\nRedémarrez Plasma (ou déconnectez-vous et reconnectez-vous) pour tout appliquer.",
+        "msg_restore_failed": "Échec de la restauration — détails dans le journal.",
+        "msg_no_terminal": "Aucun terminal trouvé. Veuillez exécuter manuellement :\n",
+        "msg_confirm_plasma": "Redémarrer Plasma maintenant ? Le bureau disparaîtra brièvement.",
+    },
+    "it": {
+        "app_subtitle": "Salva e ripristina il tuo design KDE",
+        "lang_label": "Lingua:",
+        "tab_backup": "Salva",
+        "tab_restore": "Ripristina",
+        "backup_title": "Salva l'intero design Plasma + elenchi dei pacchetti in un unico file",
+        "choose_box": "Cosa salvare?",
+        "cat_plasma": "Impostazioni Plasma e KWin",
+        "cat_gtk": "Design GTK e Kvantum (Glass ecc.)",
+        "cat_themes": "Temi, icone e cursori",
+        "cat_fonts": "Caratteri",
+        "cat_kwin": "Script ed effetti KWin",
+        "cat_wallpaper": "Sfondi e profili Konsole",
+        "cat_packages": "Elenchi dei pacchetti (pacman / AUR / Flatpak)",
+        "btn_backup": "  Crea backup …",
+        "msg_select_one": "Seleziona almeno una categoria.",
+        "dlg_save": "Salva il backup come …",
+        "dlg_open": "Scegli l'archivio di backup",
+        "dlg_archive_filter": "Archivio (*.tar.gz)",
+        "log_creating": "Creazione del backup …",
+        "log_pkg_creating": "  + Generazione elenchi pacchetti …",
+        "log_skipped": "  ! saltato",
+        "done_prefix": "\n✔ Fatto: ",
+        "msg_backup_done": "Backup creato:",
+        "err_prefix": "\n✘ Errore:\n",
+        "msg_backup_failed": "Backup non riuscito — dettagli nel registro.",
+        "restore_title": "Carica un archivio di backup e ripristina il design",
+        "restore_hint": "Ripristino con un clic: scegli l'archivio → i file vengono ricopiati.\n"
+                        "Poi, se vuoi, installa i pacchetti e riavvia Plasma.",
+        "btn_restore": "  Scegli archivio e ripristina …",
+        "btn_packages": "  Installa i pacchetti (apre un terminale)",
+        "btn_plasma": "  Riavvia Plasma (applica il design)",
+        "mf_created": "Creato", "mf_host": "Computer",
+        "mf_categories": "Categorie", "mf_packages": "Elenchi pacchetti",
+        "yes": "sì", "no": "no",
+        "msg_confirm_restore": "Ripristinare questo backup?\nLe impostazioni esistenti verranno sovrascritte.",
+        "log_extracting": "Estrazione dell'archivio …",
+        "err_invalid_archive": "Archivio non valido: cartella 'home/' mancante.",
+        "log_pkglists_saved": "Elenchi pacchetti salvati in: ",
+        "log_fontcache": "Aggiornamento della cache dei caratteri …",
+        "log_restored": "\n✔ Design ripristinato!",
+        "msg_restored_pkg": "Design ripristinato!\n\nSe vuoi, installa ora i pacchetti, poi riavvia Plasma (o esci e rientra) per applicare tutto.",
+        "msg_restored": "Design ripristinato!\n\nRiavvia Plasma (o esci e rientra) per applicare tutto.",
+        "msg_restore_failed": "Ripristino non riuscito — dettagli nel registro.",
+        "msg_no_terminal": "Nessun terminale trovato. Esegui manualmente:\n",
+        "msg_confirm_plasma": "Riavviare Plasma adesso? Il desktop sparirà per un momento.",
+    },
+    "es": {
+        "app_subtitle": "Guardar y restaurar tu diseño KDE",
+        "lang_label": "Idioma:",
+        "tab_backup": "Guardar",
+        "tab_restore": "Restaurar",
+        "backup_title": "Guarda todo el diseño de Plasma + listas de paquetes en un solo archivo",
+        "choose_box": "¿Qué se debe guardar?",
+        "cat_plasma": "Ajustes de Plasma y KWin",
+        "cat_gtk": "Diseño GTK y Kvantum (Glass, etc.)",
+        "cat_themes": "Temas, iconos y cursores",
+        "cat_fonts": "Fuentes",
+        "cat_kwin": "Scripts y efectos de KWin",
+        "cat_wallpaper": "Fondos de pantalla y perfiles de Konsole",
+        "cat_packages": "Listas de paquetes (pacman / AUR / Flatpak)",
+        "btn_backup": "  Crear copia de seguridad …",
+        "msg_select_one": "Selecciona al menos una categoría.",
+        "dlg_save": "Guardar copia de seguridad como …",
+        "dlg_open": "Elegir archivo de copia de seguridad",
+        "dlg_archive_filter": "Archivo (*.tar.gz)",
+        "log_creating": "Creando la copia de seguridad …",
+        "log_pkg_creating": "  + Generando listas de paquetes …",
+        "log_skipped": "  ! omitido",
+        "done_prefix": "\n✔ Listo: ",
+        "msg_backup_done": "Copia de seguridad creada:",
+        "err_prefix": "\n✘ Error:\n",
+        "msg_backup_failed": "La copia de seguridad falló — detalles en el registro.",
+        "restore_title": "Cargar un archivo de copia y restaurar el diseño",
+        "restore_hint": "Restauración con un clic: elige el archivo → los archivos se copian de vuelta.\n"
+                        "Después, opcionalmente instala los paquetes y reinicia Plasma.",
+        "btn_restore": "  Elegir archivo y restaurar …",
+        "btn_packages": "  Instalar paquetes (abre una terminal)",
+        "btn_plasma": "  Reiniciar Plasma (aplicar el diseño)",
+        "mf_created": "Creado", "mf_host": "Equipo",
+        "mf_categories": "Categorías", "mf_packages": "Listas de paquetes",
+        "yes": "sí", "no": "no",
+        "msg_confirm_restore": "¿Restaurar esta copia de seguridad?\nSe sobrescribirán los ajustes actuales.",
+        "log_extracting": "Extrayendo el archivo …",
+        "err_invalid_archive": "Archivo no válido: no contiene la carpeta 'home/'.",
+        "log_pkglists_saved": "Listas de paquetes guardadas en: ",
+        "log_fontcache": "Actualizando la caché de fuentes …",
+        "log_restored": "\n✔ ¡Diseño restaurado!",
+        "msg_restored_pkg": "¡Diseño restaurado!\n\nOpcionalmente instala ahora los paquetes y reinicia Plasma (o cierra y vuelve a iniciar sesión) para que todo surta efecto.",
+        "msg_restored": "¡Diseño restaurado!\n\nReinicia Plasma (o cierra y vuelve a iniciar sesión) para que todo surta efecto.",
+        "msg_restore_failed": "La restauración falló — detalles en el registro.",
+        "msg_no_terminal": "No se encontró ninguna terminal. Ejecuta manualmente:\n",
+        "msg_confirm_plasma": "¿Reiniciar Plasma ahora? El escritorio desaparecerá un momento.",
+    },
+    "pt": {
+        "app_subtitle": "Salvar e restaurar seu design KDE",
+        "lang_label": "Idioma:",
+        "tab_backup": "Salvar",
+        "tab_restore": "Restaurar",
+        "backup_title": "Salve todo o design do Plasma + listas de pacotes em um único arquivo",
+        "choose_box": "O que deve ser salvo?",
+        "cat_plasma": "Configurações do Plasma e KWin",
+        "cat_gtk": "Design GTK e Kvantum (Glass etc.)",
+        "cat_themes": "Temas, ícones e cursores",
+        "cat_fonts": "Fontes",
+        "cat_kwin": "Scripts e efeitos do KWin",
+        "cat_wallpaper": "Papéis de parede e perfis do Konsole",
+        "cat_packages": "Listas de pacotes (pacman / AUR / Flatpak)",
+        "btn_backup": "  Criar backup …",
+        "msg_select_one": "Selecione pelo menos uma categoria.",
+        "dlg_save": "Salvar backup como …",
+        "dlg_open": "Escolher arquivo de backup",
+        "dlg_archive_filter": "Arquivo (*.tar.gz)",
+        "log_creating": "Criando o backup …",
+        "log_pkg_creating": "  + Gerando listas de pacotes …",
+        "log_skipped": "  ! ignorado",
+        "done_prefix": "\n✔ Concluído: ",
+        "msg_backup_done": "Backup criado:",
+        "err_prefix": "\n✘ Erro:\n",
+        "msg_backup_failed": "Falha no backup — detalhes no registro.",
+        "restore_title": "Carregar um arquivo de backup e restaurar o design",
+        "restore_hint": "Restauração com um clique: escolha o arquivo → os arquivos são copiados de volta.\n"
+                        "Depois, opcionalmente instale os pacotes e reinicie o Plasma.",
+        "btn_restore": "  Escolher arquivo e restaurar …",
+        "btn_packages": "  Instalar pacotes (abre um terminal)",
+        "btn_plasma": "  Reiniciar o Plasma (aplicar o design)",
+        "mf_created": "Criado", "mf_host": "Computador",
+        "mf_categories": "Categorias", "mf_packages": "Listas de pacotes",
+        "yes": "sim", "no": "não",
+        "msg_confirm_restore": "Restaurar este backup?\nAs configurações existentes serão substituídas.",
+        "log_extracting": "Extraindo o arquivo …",
+        "err_invalid_archive": "Arquivo inválido: pasta 'home/' não encontrada.",
+        "log_pkglists_saved": "Listas de pacotes salvas em: ",
+        "log_fontcache": "Atualizando o cache de fontes …",
+        "log_restored": "\n✔ Design restaurado!",
+        "msg_restored_pkg": "Design restaurado!\n\nOpcionalmente instale os pacotes agora e reinicie o Plasma (ou saia e entre novamente) para aplicar tudo.",
+        "msg_restored": "Design restaurado!\n\nReinicie o Plasma (ou saia e entre novamente) para aplicar tudo.",
+        "msg_restore_failed": "Falha na restauração — detalhes no registro.",
+        "msg_no_terminal": "Nenhum terminal encontrado. Execute manualmente:\n",
+        "msg_confirm_plasma": "Reiniciar o Plasma agora? A área de trabalho sumirá por um instante.",
+    },
+    "tr": {
+        "app_subtitle": "KDE tasarımınızı yedekleyin ve geri yükleyin",
+        "lang_label": "Dil:",
+        "tab_backup": "Yedekle",
+        "tab_restore": "Geri Yükle",
+        "backup_title": "Tüm Plasma tasarımını + paket listelerini tek dosyada yedekleyin",
+        "choose_box": "Neler yedeklensin?",
+        "cat_plasma": "Plasma ve KWin ayarları",
+        "cat_gtk": "GTK ve Kvantum tasarımı (Glass vb.)",
+        "cat_themes": "Temalar, simgeler ve imleçler",
+        "cat_fonts": "Yazı tipleri",
+        "cat_kwin": "KWin betikleri ve efektleri",
+        "cat_wallpaper": "Duvar kâğıtları ve Konsole profilleri",
+        "cat_packages": "Paket listeleri (pacman / AUR / Flatpak)",
+        "btn_backup": "  Yedek oluştur …",
+        "msg_select_one": "Lütfen en az bir kategori seçin.",
+        "dlg_save": "Yedeği farklı kaydet …",
+        "dlg_open": "Yedek arşivini seç",
+        "dlg_archive_filter": "Arşiv (*.tar.gz)",
+        "log_creating": "Yedek oluşturuluyor …",
+        "log_pkg_creating": "  + Paket listeleri oluşturuluyor …",
+        "log_skipped": "  ! atlandı",
+        "done_prefix": "\n✔ Tamamlandı: ",
+        "msg_backup_done": "Yedek oluşturuldu:",
+        "err_prefix": "\n✘ Hata:\n",
+        "msg_backup_failed": "Yedekleme başarısız — ayrıntılar günlükte.",
+        "restore_title": "Yedek arşivini yükleyin ve tasarımı geri getirin",
+        "restore_hint": "Tek tıkla geri yükleme: arşivi seçin → dosyalar geri kopyalanır.\n"
+                        "Ardından isteğe bağlı paketleri kurun ve Plasma'yı yeniden başlatın.",
+        "btn_restore": "  Arşiv seç ve geri yükle …",
+        "btn_packages": "  Paketleri kur (terminal açılır)",
+        "btn_plasma": "  Plasma'yı yeniden başlat (tasarımı uygula)",
+        "mf_created": "Oluşturulma", "mf_host": "Bilgisayar",
+        "mf_categories": "Kategoriler", "mf_packages": "Paket listeleri",
+        "yes": "evet", "no": "hayır",
+        "msg_confirm_restore": "Bu yedek geri yüklensin mi?\nMevcut ayarların üzerine yazılacak.",
+        "log_extracting": "Arşiv çıkarılıyor …",
+        "err_invalid_archive": "Geçersiz arşiv: 'home/' klasörü yok.",
+        "log_pkglists_saved": "Paket listeleri şuraya kaydedildi: ",
+        "log_fontcache": "Yazı tipi önbelleği güncelleniyor …",
+        "log_restored": "\n✔ Tasarım geri yüklendi!",
+        "msg_restored_pkg": "Tasarım geri yüklendi!\n\nİsterseniz şimdi paketleri kurun, ardından her şeyin etkinleşmesi için Plasma'yı yeniden başlatın (veya oturumu kapatıp açın).",
+        "msg_restored": "Tasarım geri yüklendi!\n\nHer şeyin etkinleşmesi için Plasma'yı yeniden başlatın (veya oturumu kapatıp açın).",
+        "msg_restore_failed": "Geri yükleme başarısız — ayrıntılar günlükte.",
+        "msg_no_terminal": "Terminal bulunamadı. Lütfen elle çalıştırın:\n",
+        "msg_confirm_plasma": "Plasma şimdi yeniden başlatılsın mı? Masaüstü kısa süreliğine kaybolur.",
+    },
+}
+
+_current_lang = "de"
+
+
+def T(key: str) -> str:
+    """Übersetzten Text für die aktuelle Sprache liefern."""
+    return TRANSLATIONS.get(_current_lang, TRANSLATIONS["en"]).get(
+        key, TRANSLATIONS["en"].get(key, key))
+
+
+def detect_language(settings: QSettings) -> str:
+    saved = settings.value("language", "")
+    if saved in TRANSLATIONS:
+        return saved
+    env = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+           or os.environ.get("LANG") or "en")[:2].lower()
+    return env if env in TRANSLATIONS else "en"
+
 
 # ----------------------------------------------------------------------------
 # Was gesichert wird — Pfade relativ zum Home-Verzeichnis
+# (Schlüssel = stabile IDs, Anzeigename kommt aus den Übersetzungen)
 # ----------------------------------------------------------------------------
 CATEGORIES: dict[str, list[str]] = {
-    "Plasma- & KWin-Einstellungen": [
+    "cat_plasma": [
         ".config/kdeglobals",
         ".config/kwinrc",
         ".config/kwinrulesrc",
@@ -71,7 +433,7 @@ CATEGORIES: dict[str, list[str]] = {
         ".config/touchpadrc",
         ".config/powermanagementprofilesrc",
     ],
-    "GTK- & Kvantum-Design (Glass etc.)": [
+    "cat_gtk": [
         ".config/gtkrc",
         ".config/gtkrc-2.0",
         ".config/gtk-3.0",
@@ -79,7 +441,7 @@ CATEGORIES: dict[str, list[str]] = {
         ".config/Kvantum",
         ".gtkrc-2.0",
     ],
-    "Themes, Icons & Cursor": [
+    "cat_themes": [
         ".local/share/plasma",            # Desktop-Themes, Look&Feel, Plasmoids
         ".local/share/aurorae",           # Fensterdekorationen
         ".local/share/color-schemes",
@@ -88,27 +450,25 @@ CATEGORIES: dict[str, list[str]] = {
         ".themes",
         ".icons",
     ],
-    "Schriften": [
+    "cat_fonts": [
         ".local/share/fonts",
         ".fonts",
         ".config/fontconfig",
         ".local/share/kfontinst",
     ],
-    "KWin-Skripte & Effekte": [
+    "cat_kwin": [
         ".local/share/kwin",              # Skripte, Effekte, Tabbox
         ".local/share/kservices5",
         ".local/share/kservices6",
         ".local/share/knewstuff3",
     ],
-    "Wallpaper & Konsole-Profile": [
+    "cat_wallpaper": [
         ".local/share/wallpapers",
         ".local/share/konsole",
         ".local/share/kxmlgui5",
         ".local/share/kxmlgui6",
     ],
 }
-
-PKG_CATEGORY = "Paketlisten (pacman / AUR / Flatpak)"
 
 
 def gather_package_lists() -> dict[str, str]:
@@ -182,18 +542,17 @@ class BackupWorker(QThread):
                     try:
                         tar.add(p, arcname=f"home/{rel}")
                     except (PermissionError, OSError) as e:
-                        self.log.emit(f"  ! übersprungen ({e})")
+                        self.log.emit(f"{T('log_skipped')} ({e})")
                     done += 1
                     self.progress.emit(int(done / total * 100))
 
                 if self.with_packages:
-                    self.log.emit("  + Paketlisten erzeugen …")
+                    self.log.emit(T("log_pkg_creating"))
                     for fname, content in gather_package_lists().items():
                         data = content.encode()
                         info = tarfile.TarInfo(f"packages/{fname}")
                         info.size = len(data)
                         info.mtime = int(datetime.now().timestamp())
-                        import io
                         tar.addfile(info, io.BytesIO(data))
                     done += 1
                     self.progress.emit(int(done / total * 100))
@@ -202,7 +561,6 @@ class BackupWorker(QThread):
                 info = tarfile.TarInfo("manifest.json")
                 info.size = len(mdata)
                 info.mtime = int(datetime.now().timestamp())
-                import io
                 tar.addfile(info, io.BytesIO(mdata))
 
             self.progress.emit(100)
@@ -237,7 +595,7 @@ class RestoreWorker(QThread):
         try:
             with tempfile.TemporaryDirectory(prefix="sdd-restore-") as tmp:
                 tmpp = Path(tmp)
-                self.log.emit("Archiv wird entpackt …")
+                self.log.emit(T("log_extracting"))
                 with tarfile.open(self.archive, "r:gz") as tar:
                     # Sicherheit: keine Pfade außerhalb des Zielordners zulassen
                     members = []
@@ -255,7 +613,7 @@ class RestoreWorker(QThread):
 
                 src_home = tmpp / "home"
                 if not src_home.exists():
-                    self.failed.emit("Ungültiges Archiv: kein 'home/'-Ordner enthalten.")
+                    self.failed.emit(T("err_invalid_archive"))
                     return
 
                 entries = list(src_home.iterdir())
@@ -273,9 +631,9 @@ class RestoreWorker(QThread):
                     for f in pkg_dir.iterdir():
                         shutil.copy2(f, dest / f.name)
                     has_packages = True
-                    self.log.emit(f"Paketlisten gespeichert unter: {dest}")
+                    self.log.emit(T("log_pkglists_saved") + str(dest))
 
-                self.log.emit("Schrift-Cache wird aktualisiert …")
+                self.log.emit(T("log_fontcache"))
                 subprocess.run(["fc-cache", "-f"], capture_output=True, timeout=300)
 
                 self.progress.emit(100)
@@ -300,40 +658,72 @@ class RestoreWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"{APP_NAME} {VERSION} — KDE-Design sichern & laden")
+        global _current_lang
+        self.settings = QSettings(APP_NAME, APP_NAME)
+        _current_lang = detect_language(self.settings)
         self.setWindowIcon(QIcon.fromTheme("preferences-desktop-theme"))
-        self.resize(720, 620)
+        self.resize(720, 660)
         self.worker = None
+        self._build_ui()
+
+    # ---------------- UI-Aufbau (bei Sprachwechsel neu) ----------------
+    def _build_ui(self):
+        self.setWindowTitle(f"{APP_NAME} {VERSION} — {T('app_subtitle')}")
+
+        root = QWidget()
+        root_lay = QVBoxLayout(root)
+
+        # Sprachauswahl oben rechts
+        lang_lay = QHBoxLayout()
+        lang_lay.addStretch()
+        lang_lay.addWidget(QLabel(T("lang_label")))
+        self.lang_combo = QComboBox()
+        for code, name in LANG_NAMES.items():
+            self.lang_combo.addItem(name, code)
+        self.lang_combo.setCurrentIndex(list(LANG_NAMES).index(_current_lang))
+        self.lang_combo.currentIndexChanged.connect(self._change_language)
+        lang_lay.addWidget(self.lang_combo)
+        root_lay.addLayout(lang_lay)
 
         tabs = QTabWidget()
-        tabs.addTab(self._build_backup_tab(), QIcon.fromTheme("document-save"), "Sichern")
-        tabs.addTab(self._build_restore_tab(), QIcon.fromTheme("document-open"), "Wiederherstellen")
-        self.setCentralWidget(tabs)
+        tabs.addTab(self._build_backup_tab(), QIcon.fromTheme("document-save"), T("tab_backup"))
+        tabs.addTab(self._build_restore_tab(), QIcon.fromTheme("document-open"), T("tab_restore"))
+        root_lay.addWidget(tabs)
+        self.setCentralWidget(root)
+
+    def _change_language(self):
+        global _current_lang
+        code = self.lang_combo.currentData()
+        if code and code != _current_lang:
+            _current_lang = code
+            self.settings.setValue("language", code)
+            self._build_ui()
 
     # ---------------- Backup-Tab ----------------
     def _build_backup_tab(self) -> QWidget:
         w = QWidget()
         lay = QVBoxLayout(w)
 
-        title = QLabel("Komplettes Plasma-Design + Paketlisten in eine Datei sichern")
+        title = QLabel(T("backup_title"))
         f = QFont(); f.setPointSize(12); f.setBold(True)
         title.setFont(f)
+        title.setWordWrap(True)
         lay.addWidget(title)
 
-        box = QGroupBox("Was soll gesichert werden?")
+        box = QGroupBox(T("choose_box"))
         blay = QVBoxLayout(box)
         self.cat_checks: dict[str, QCheckBox] = {}
-        for cat in CATEGORIES:
-            cb = QCheckBox(cat)
+        for cat_id in CATEGORIES:
+            cb = QCheckBox(T(cat_id))
             cb.setChecked(True)
-            self.cat_checks[cat] = cb
+            self.cat_checks[cat_id] = cb
             blay.addWidget(cb)
-        self.pkg_check = QCheckBox(PKG_CATEGORY)
+        self.pkg_check = QCheckBox(T("cat_packages"))
         self.pkg_check.setChecked(True)
         blay.addWidget(self.pkg_check)
         lay.addWidget(box)
 
-        self.backup_btn = QPushButton(QIcon.fromTheme("document-save"), "  Backup erstellen …")
+        self.backup_btn = QPushButton(QIcon.fromTheme("document-save"), T("btn_backup"))
         self.backup_btn.setMinimumHeight(42)
         self.backup_btn.clicked.connect(self.start_backup)
         lay.addWidget(self.backup_btn)
@@ -349,11 +739,11 @@ class MainWindow(QMainWindow):
     def start_backup(self):
         cats = [c for c, cb in self.cat_checks.items() if cb.isChecked()]
         if not cats and not self.pkg_check.isChecked():
-            QMessageBox.warning(self, APP_NAME, "Bitte mindestens eine Kategorie auswählen.")
+            QMessageBox.warning(self, APP_NAME, T("msg_select_one"))
             return
         default = str(HOME / f"plasma-design-{datetime.now():%Y-%m-%d}.tar.gz")
         dest, _ = QFileDialog.getSaveFileName(
-            self, "Backup speichern unter …", default, "Archiv (*.tar.gz)")
+            self, T("dlg_save"), default, T("dlg_archive_filter"))
         if not dest:
             return
         if not dest.endswith(".tar.gz"):
@@ -361,7 +751,7 @@ class MainWindow(QMainWindow):
 
         self.backup_btn.setEnabled(False)
         self.backup_log.clear()
-        self.backup_log.append("Backup wird erstellt …")
+        self.backup_log.append(T("log_creating"))
         self.worker = BackupWorker(dest, cats, self.pkg_check.isChecked())
         self.worker.log.connect(self.backup_log.append)
         self.worker.progress.connect(self.backup_progress.setValue)
@@ -371,41 +761,40 @@ class MainWindow(QMainWindow):
 
     def _backup_done(self, info: str):
         self.backup_btn.setEnabled(True)
-        self.backup_log.append(f"\n✔ Fertig: {info}")
-        QMessageBox.information(self, APP_NAME, f"Backup erstellt:\n{info}")
+        self.backup_log.append(T("done_prefix") + info)
+        QMessageBox.information(self, APP_NAME, f"{T('msg_backup_done')}\n{info}")
 
     def _backup_fail(self, err: str):
         self.backup_btn.setEnabled(True)
-        self.backup_log.append(f"\n✘ Fehler:\n{err}")
-        QMessageBox.critical(self, APP_NAME, "Backup fehlgeschlagen — Details im Protokoll.")
+        self.backup_log.append(T("err_prefix") + err)
+        QMessageBox.critical(self, APP_NAME, T("msg_backup_failed"))
 
     # ---------------- Restore-Tab ----------------
     def _build_restore_tab(self) -> QWidget:
         w = QWidget()
         lay = QVBoxLayout(w)
 
-        title = QLabel("Backup-Archiv laden und Design wiederherstellen")
+        title = QLabel(T("restore_title"))
         f = QFont(); f.setPointSize(12); f.setBold(True)
         title.setFont(f)
+        title.setWordWrap(True)
         lay.addWidget(title)
 
-        hint = QLabel(
-            "1-Klick-Restore: Archiv wählen → Dateien werden zurückkopiert.\n"
-            "Danach optional Pakete installieren und Plasma neu starten.")
+        hint = QLabel(T("restore_hint"))
         hint.setWordWrap(True)
         lay.addWidget(hint)
 
-        self.restore_btn = QPushButton(QIcon.fromTheme("document-open"), "  Archiv wählen & wiederherstellen …")
+        self.restore_btn = QPushButton(QIcon.fromTheme("document-open"), T("btn_restore"))
         self.restore_btn.setMinimumHeight(42)
         self.restore_btn.clicked.connect(self.start_restore)
         lay.addWidget(self.restore_btn)
 
-        self.pkg_btn = QPushButton(QIcon.fromTheme("system-software-install"), "  Pakete installieren (öffnet Terminal)")
+        self.pkg_btn = QPushButton(QIcon.fromTheme("system-software-install"), T("btn_packages"))
         self.pkg_btn.setEnabled(False)
         self.pkg_btn.clicked.connect(self.install_packages)
         lay.addWidget(self.pkg_btn)
 
-        self.plasma_btn = QPushButton(QIcon.fromTheme("system-reboot"), "  Plasma neu starten (Design anwenden)")
+        self.plasma_btn = QPushButton(QIcon.fromTheme("system-reboot"), T("btn_plasma"))
         self.plasma_btn.setEnabled(False)
         self.plasma_btn.clicked.connect(self.restart_plasma)
         lay.addWidget(self.plasma_btn)
@@ -420,7 +809,7 @@ class MainWindow(QMainWindow):
 
     def start_restore(self):
         archive, _ = QFileDialog.getOpenFileName(
-            self, "Backup-Archiv wählen", str(HOME), "Archiv (*.tar.gz)")
+            self, T("dlg_open"), str(HOME), T("dlg_archive_filter"))
         if not archive:
             return
 
@@ -431,14 +820,15 @@ class MainWindow(QMainWindow):
                 mf = tar.extractfile("manifest.json")
                 if mf:
                     m = json.loads(mf.read())
-                    info_txt = (f"Erstellt: {m.get('created')}\n"
-                                f"Rechner: {m.get('hostname')}\n"
-                                f"Kategorien: {len(m.get('categories', []))}\n"
-                                f"Paketlisten: {'ja' if m.get('with_packages') else 'nein'}")
+                    info_txt = (f"{T('mf_created')}: {m.get('created')}\n"
+                                f"{T('mf_host')}: {m.get('hostname')}\n"
+                                f"{T('mf_categories')}: {len(m.get('categories', []))}\n"
+                                f"{T('mf_packages')}: "
+                                f"{T('yes') if m.get('with_packages') else T('no')}")
         except Exception:
             pass
 
-        msg = "Dieses Backup wiederherstellen?\nBestehende Einstellungen werden überschrieben."
+        msg = T("msg_confirm_restore")
         if info_txt:
             msg += f"\n\n{info_txt}"
         if QMessageBox.question(self, APP_NAME, msg) != QMessageBox.StandardButton.Yes:
@@ -457,17 +847,15 @@ class MainWindow(QMainWindow):
         self.restore_btn.setEnabled(True)
         self.plasma_btn.setEnabled(True)
         self.pkg_btn.setEnabled(has_packages)
-        self.restore_log.append("\n✔ Design wiederhergestellt!")
+        self.restore_log.append(T("log_restored"))
         QMessageBox.information(
             self, APP_NAME,
-            "Design wiederhergestellt!\n\n"
-            + ("Jetzt optional Pakete installieren und " if has_packages else "")
-            + "Plasma neu starten (oder ab- und anmelden), damit alles greift.")
+            T("msg_restored_pkg") if has_packages else T("msg_restored"))
 
     def _restore_fail(self, err: str):
         self.restore_btn.setEnabled(True)
-        self.restore_log.append(f"\n✘ Fehler:\n{err}")
-        QMessageBox.critical(self, APP_NAME, "Restore fehlgeschlagen — Details im Protokoll.")
+        self.restore_log.append(T("err_prefix") + err)
+        QMessageBox.critical(self, APP_NAME, T("msg_restore_failed"))
 
     def install_packages(self):
         pkg_dir = HOME / ".savedesktopdesign-packages"
@@ -477,28 +865,27 @@ class MainWindow(QMainWindow):
             "#!/usr/bin/env bash",
             "set -e",
             'cd "$(dirname "$0")"',
-            "echo '=== SaveDesktopDesign: Pakete installieren ==='",
+            "echo '=== SaveDesktopDesign ==='",
         ]
         if (pkg_dir / "pacman-explicit.txt").exists():
-            lines.append("echo; echo '--- Offizielle Pakete (pacman) ---'")
+            lines.append("echo; echo '--- pacman ---'")
             lines.append("sudo pacman -S --needed - < pacman-explicit.txt || true")
         if (pkg_dir / "pacman-foreign.txt").exists():
             if helper:
-                lines.append("echo; echo '--- AUR-Pakete ---'")
+                lines.append("echo; echo '--- AUR ---'")
                 lines.append(f"{Path(helper).name} -S --needed - < pacman-foreign.txt || true")
             else:
-                lines.append("echo 'Kein AUR-Helper (paru/yay) gefunden — AUR-Pakete in pacman-foreign.txt'")
+                lines.append("echo 'No AUR helper (paru/yay) found — AUR packages: pacman-foreign.txt'")
         if (pkg_dir / "flatpak.txt").exists():
-            lines.append("echo; echo '--- Flatpaks ---'")
+            lines.append("echo; echo '--- Flatpak ---'")
             lines.append("xargs -r -a flatpak.txt -I{} flatpak install -y --noninteractive flathub {} || true")
-        lines.append("echo; echo 'Fertig! Fenster kann geschlossen werden.'; read -r -p 'Enter zum Beenden …'")
+        lines.append("echo; echo 'Done!'; read -r -p 'Enter …'")
         script.write_text("\n".join(lines))
         script.chmod(0o755)
 
         term = shutil.which("konsole") or shutil.which("alacritty") or shutil.which("xterm")
         if not term:
-            QMessageBox.warning(self, APP_NAME,
-                                f"Kein Terminal gefunden. Bitte manuell ausführen:\n{script}")
+            QMessageBox.warning(self, APP_NAME, T("msg_no_terminal") + str(script))
             return
         if "konsole" in term:
             subprocess.Popen([term, "-e", "bash", str(script)])
@@ -507,8 +894,7 @@ class MainWindow(QMainWindow):
 
     def restart_plasma(self):
         if QMessageBox.question(
-                self, APP_NAME,
-                "Plasma jetzt neu starten? Der Desktop ist kurz weg.") != QMessageBox.StandardButton.Yes:
+                self, APP_NAME, T("msg_confirm_plasma")) != QMessageBox.StandardButton.Yes:
             return
         subprocess.Popen(
             "kquitapp6 plasmashell 2>/dev/null || kquitapp5 plasmashell 2>/dev/null; "
