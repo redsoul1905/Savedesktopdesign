@@ -2,7 +2,7 @@
 
 Backs up your **entire KDE Plasma design from A to Z into a single file** — and restores it on a new machine with one click.
 
-Built for **CachyOS** and other Arch-based systems running KDE Plasma.
+Works on **Arch-based systems (CachyOS, EndeavourOS …), Ubuntu/Debian and Fedora** — anywhere KDE Plasma runs.
 
 🌍 **Languages:** English · Deutsch · Français · Italiano · Español · Português · Türkçe — auto-detects your system language, switchable in the app.
 
@@ -16,14 +16,30 @@ Built for **CachyOS** and other Arch-based systems running KDE Plasma.
 | Fonts | Custom fonts incl. fontconfig |
 | KWin scripts & effects | Krohnkite & co. from `~/.local/share/kwin` |
 | Wallpapers & more | Wallpapers, Konsole profiles |
-| Package lists | pacman (explicit), AUR/foreign, Flatpak — e.g. for Rounded Corners, Force Blur, Kvantum |
+| Package lists | pacman (explicit) & AUR, apt (manual), dnf (user-installed), Flatpak — e.g. for Rounded Corners, Force Blur, Kvantum |
 
 > **Note:** Compiled KWin plugins (e.g. Rounded Corners) live in system directories and are reinstalled via the **package list**, not copied as files.
+> Package restore works between machines of the **same distro family** (Arch→Arch, Ubuntu→Ubuntu, Fedora→Fedora); the design files themselves restore on any distro.
 
 ## Installation
 
+**Arch / CachyOS / EndeavourOS:**
 ```bash
 sudo pacman -S --needed git python python-pyqt6
+```
+
+**Ubuntu / Debian:**
+```bash
+sudo apt install git python3 python3-pyqt6
+```
+
+**Fedora:**
+```bash
+sudo dnf install git python3 python3-pyqt6
+```
+
+Then:
+```bash
 git clone https://github.com/redsoul1905/Savedesktopdesign.git
 cd Savedesktopdesign
 ./install.sh
@@ -46,7 +62,7 @@ python3 savedesktopdesign.py
 
 **Restore (new machine):**
 1. Launch the app → **Restore** tab → choose the archive
-2. Click **Install packages** (opens a terminal; uses `pacman`, `paru`/`yay` and `flatpak`)
+2. Click **Install packages** (opens a terminal; automatically uses `pacman`/`paru`/`yay`, `apt`, `dnf` or `flatpak` depending on your system)
 3. **Log out and back in** so KWin effects and the design fully apply
 
 ## Uninstall
@@ -57,9 +73,9 @@ python3 savedesktopdesign.py
 
 ## Requirements
 
-- Arch-based system (CachyOS, EndeavourOS, Arch …) with KDE Plasma
-- Python 3.10+ and `python-pyqt6`
-- Optional: `paru` or `yay` for AUR packages, `flatpak`
+- Linux with KDE Plasma — Arch-based (CachyOS, EndeavourOS …), Ubuntu/Debian or Fedora
+- Python 3.10+ and PyQt6 (`python-pyqt6` on Arch, `python3-pyqt6` on Ubuntu/Fedora)
+- Optional: `paru`/`yay` for AUR packages, `flatpak`
 
 ## License
 

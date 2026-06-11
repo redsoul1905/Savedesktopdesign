@@ -14,10 +14,18 @@ if [[ "$1" == "--uninstall" ]]; then
     exit 0
 fi
 
-# Abhängigkeit prüfen
+# Abhängigkeit prüfen / check dependency
 if ! python3 -c "import PyQt6" 2>/dev/null; then
-    echo "python-pyqt6 fehlt. Installation:"
-    echo "  sudo pacman -S python-pyqt6"
+    echo "PyQt6 is missing. Install it with:"
+    if command -v pacman >/dev/null; then
+        echo "  sudo pacman -S python-pyqt6"
+    elif command -v apt-get >/dev/null; then
+        echo "  sudo apt install python3-pyqt6"
+    elif command -v dnf >/dev/null; then
+        echo "  sudo dnf install python3-pyqt6"
+    else
+        echo "  (install the PyQt6 package for your distribution)"
+    fi
     exit 1
 fi
 

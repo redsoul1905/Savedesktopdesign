@@ -4,8 +4,9 @@ SaveDesktopDesign — Sichert & restauriert das komplette KDE-Plasma-Design
 (Themes, Icons, Schriften, KWin-Skripte, Plasma-Einstellungen, Kvantum,
 Wallpaper, Panel-Layouts) sowie Paketlisten (pacman, AUR, Flatpak).
 
-Für CachyOS / Arch-basierte Systeme mit KDE Plasma.
-Benötigt: python-pyqt6  (sudo pacman -S python-pyqt6)
+Für KDE Plasma auf Arch-basierten Systemen (CachyOS, EndeavourOS …),
+Ubuntu/Debian (apt) und Fedora (dnf).
+Benötigt PyQt6:  Arch: python-pyqt6 | Ubuntu/Fedora: python3-pyqt6
 
 Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe
 """
@@ -33,7 +34,7 @@ from PyQt6.QtWidgets import (
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.1"
+VERSION = "1.2"
 
 # ----------------------------------------------------------------------------
 # Übersetzungen / Translations
@@ -471,29 +472,46 @@ CATEGORIES: dict[str, list[str]] = {
 }
 
 
-def gather_package_lists() -> dict[str, str]:
-    """Erzeugt Paketlisten als {dateiname: inhalt}."""
-    lists: dict[str, str] = {}
-    cmds = {
-        "pacman-explicit.txt": ["pacman", "-Qqen"],   # explizit, offizielle Repos
-        "pacman-foreign.txt": ["pacman", "-Qqem"],    # AUR / fremd
-    }
-    for fname, cmd in cmds.items():
-        try:
-            out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if out.returncode == 0:
-                lists[fname] = out.stdout
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
+def _run_cmd(cmd: list[str], timeout: int = 120) -> str | None:
     try:
-        out = subprocess.run(
-            ["flatpak", "list", "--app", "--columns=application"],
-            capture_output=True, text=True, timeout=60,
-        )
-        if out.returncode == 0:
-            lists["flatpak.txt"] = out.stdout
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return out.stdout if out.returncode == 0 else None
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+        return None
+
+
+def gather_package_lists() -> dict[str, str]:
+    """Erzeugt Paketlisten als {dateiname: inhalt} — pacman, apt, dnf, flatpak."""
+    lists: dict[str, str] = {}
+
+    if shutil.which("pacman"):
+        for fname, cmd in {
+            "pacman-explicit.txt": ["pacman", "-Qqen"],   # explizit, offizielle Repos
+            "pacman-foreign.txt": ["pacman", "-Qqem"],    # AUR / fremd
+        }.items():
+            out = _run_cmd(cmd)
+            if out:
+                lists[fname] = out
+
+    if shutil.which("apt-mark"):                          # Ubuntu / Debian
+        out = _run_cmd(["apt-mark", "showmanual"])
+        if out:
+            lists["apt-manual.txt"] = out
+
+    if shutil.which("dnf"):                               # Fedora
+        out = (_run_cmd(["dnf", "repoquery", "--userinstalled",
+                         "--queryformat", "%{name}\n"], 300)
+               or _run_cmd(["dnf", "repoquery", "--userinstalled"], 300))
+        if out:
+            # Duplikate entfernen, leere Zeilen filtern
+            names = sorted({l.strip() for l in out.splitlines() if l.strip()})
+            lists["dnf-packages.txt"] = "\n".join(names) + "\n"
+
+    if shutil.which("flatpak"):
+        out = _run_cmd(["flatpak", "list", "--app", "--columns=application"])
+        if out:
+            lists["flatpak.txt"] = out
+
     return lists
 
 
@@ -867,28 +885,56 @@ class MainWindow(QMainWindow):
             'cd "$(dirname "$0")"',
             "echo '=== SaveDesktopDesign ==='",
         ]
+        # --- Arch / CachyOS ---
         if (pkg_dir / "pacman-explicit.txt").exists():
-            lines.append("echo; echo '--- pacman ---'")
-            lines.append("sudo pacman -S --needed - < pacman-explicit.txt || true")
-        if (pkg_dir / "pacman-foreign.txt").exists():
+            if shutil.which("pacman"):
+                lines.append("echo; echo '--- pacman ---'")
+                lines.append("sudo pacman -S --needed - < pacman-explicit.txt || true")
+            else:
+                lines.append("echo 'pacman list found, but this is not an Arch system — skipping.'")
+        if (pkg_dir / "pacman-foreign.txt").exists() and shutil.which("pacman"):
             if helper:
                 lines.append("echo; echo '--- AUR ---'")
                 lines.append(f"{Path(helper).name} -S --needed - < pacman-foreign.txt || true")
             else:
                 lines.append("echo 'No AUR helper (paru/yay) found — AUR packages: pacman-foreign.txt'")
+        # --- Ubuntu / Debian ---
+        if (pkg_dir / "apt-manual.txt").exists():
+            if shutil.which("apt-get"):
+                lines.append("echo; echo '--- apt ---'")
+                lines.append("sudo apt-get update")
+                lines.append("xargs -r -a apt-manual.txt sudo apt-get install -y --ignore-missing || true")
+            else:
+                lines.append("echo 'apt list found, but apt is not available — skipping.'")
+        # --- Fedora ---
+        if (pkg_dir / "dnf-packages.txt").exists():
+            if shutil.which("dnf"):
+                lines.append("echo; echo '--- dnf ---'")
+                lines.append("xargs -r -a dnf-packages.txt sudo dnf install -y --skip-broken || "
+                             "xargs -r -a dnf-packages.txt sudo dnf install -y || true")
+            else:
+                lines.append("echo 'dnf list found, but dnf is not available — skipping.'")
+        # --- Flatpak (alle Distros) ---
         if (pkg_dir / "flatpak.txt").exists():
-            lines.append("echo; echo '--- Flatpak ---'")
-            lines.append("xargs -r -a flatpak.txt -I{} flatpak install -y --noninteractive flathub {} || true")
+            if shutil.which("flatpak"):
+                lines.append("echo; echo '--- Flatpak ---'")
+                lines.append("xargs -r -a flatpak.txt -I{} flatpak install -y --noninteractive flathub {} || true")
+            else:
+                lines.append("echo 'flatpak list found, but flatpak is not installed — skipping.'")
         lines.append("echo; echo 'Done!'; read -r -p 'Enter …'")
         script.write_text("\n".join(lines))
         script.chmod(0o755)
 
-        term = shutil.which("konsole") or shutil.which("alacritty") or shutil.which("xterm")
+        term = (shutil.which("konsole") or shutil.which("gnome-terminal")
+                or shutil.which("xfce4-terminal") or shutil.which("alacritty")
+                or shutil.which("xterm"))
         if not term:
             QMessageBox.warning(self, APP_NAME, T("msg_no_terminal") + str(script))
             return
         if "konsole" in term:
             subprocess.Popen([term, "-e", "bash", str(script)])
+        elif "gnome-terminal" in term:
+            subprocess.Popen([term, "--", "bash", str(script)])
         else:
             subprocess.Popen([term, "-e", f"bash {script}"])
 
