@@ -663,11 +663,37 @@ class RestoreWorker(QThread):
         rel = entry.relative_to(src_root)
         target = HOME / rel
         self.log.emit(f"  → {rel}")
-        if entry.is_dir():
-            shutil.copytree(entry, target, dirs_exist_ok=True, symlinks=True)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        self._merge(entry, target)
+
+    def _remove_existing(self, dst: Path):
+        """Vorhandenes Ziel (Datei, Symlink oder Ordner) entfernen."""
+        if dst.is_dir() and not dst.is_symlink():
+            shutil.rmtree(dst)
         else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(entry, target)
+            dst.unlink()
+
+    def _merge(self, src: Path, dst: Path):
+        """Rekursives Kopieren, das vorhandene Dateien/Symlinks ersetzt.
+        Einzelne Fehler werden protokolliert, brechen aber nicht alles ab."""
+        try:
+            if src.is_symlink():
+                link = os.readlink(src)
+                if os.path.lexists(dst):
+                    self._remove_existing(dst)
+                os.symlink(link, dst)
+            elif src.is_dir():
+                if os.path.lexists(dst) and not (dst.is_dir() and not dst.is_symlink()):
+                    self._remove_existing(dst)
+                dst.mkdir(parents=True, exist_ok=True)
+                for child in src.iterdir():
+                    self._merge(child, dst / child.name)
+            else:
+                if os.path.lexists(dst):
+                    self._remove_existing(dst)
+                shutil.copy2(src, dst)
+        except OSError as e:
+            self.log.emit(f"{T('log_skipped')} {dst} ({e})")
 
 
 # ----------------------------------------------------------------------------
