@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SaveDesktopDesign
+Comment=KDE-Plasma-Design & Paketlisten sichern und wiederherstellen
+Exec=python3 /home/savas/Dokumente/Claude/Projects/Savedesktopdesign/savedesktopdesign.py
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Utility;Settings;
