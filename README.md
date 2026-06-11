@@ -1,66 +1,66 @@
 # SaveDesktopDesign
 
-Sichert dein komplettes **KDE-Plasma-Design von A bis Z in eine einzige Datei** — und stellt es auf einem neuen Rechner mit einem Klick wieder her.
+Backs up your **entire KDE Plasma design from A to Z into a single file** — and restores it on a new machine with one click.
 
-Gemacht für **CachyOS** und andere Arch-basierte Systeme mit KDE Plasma.
+Built for **CachyOS** and other Arch-based systems running KDE Plasma.
 
-🌍 **Sprachen:** Deutsch · English · Français · Italiano · Español · Português · Türkçe — automatische Erkennung der Systemsprache, umschaltbar in der App.
+🌍 **Languages:** English · Deutsch · Français · Italiano · Español · Português · Türkçe — auto-detects your system language, switchable in the app.
 
-## Was wird gesichert?
+## What gets backed up?
 
-| Kategorie | Inhalt |
+| Category | Contents |
 |---|---|
-| Plasma & KWin | Globale Designs, Panel-Layouts, Shortcuts, Fensterregeln, Krohnkite-/Skript-Einstellungen |
-| GTK & Kvantum | Glass-/Kvantum-Themes, GTK 2/3/4-Konfiguration |
-| Themes & Icons | Desktop-Themes, Look-and-Feel, Fensterdekorationen (Aurorae), Farbschemata, Icons, Cursor |
-| Schriften | Eigene Fonts inkl. fontconfig |
-| KWin-Skripte & Effekte | Krohnkite & Co. aus `~/.local/share/kwin` |
-| Wallpaper & Co. | Hintergrundbilder, Konsole-Profile |
-| Paketlisten | pacman (explizit), AUR/fremd, Flatpak — z. B. für Rounded Corners, Force Blur, Kvantum |
+| Plasma & KWin | Global themes, panel layouts, shortcuts, window rules, Krohnkite/script settings |
+| GTK & Kvantum | Glass/Kvantum themes, GTK 2/3/4 configuration |
+| Themes & icons | Desktop themes, look-and-feel, window decorations (Aurorae), color schemes, icons, cursors |
+| Fonts | Custom fonts incl. fontconfig |
+| KWin scripts & effects | Krohnkite & co. from `~/.local/share/kwin` |
+| Wallpapers & more | Wallpapers, Konsole profiles |
+| Package lists | pacman (explicit), AUR/foreign, Flatpak — e.g. for Rounded Corners, Force Blur, Kvantum |
 
-> **Hinweis:** Kompilierte KWin-Plugins (z. B. Rounded Corners) liegen in Systemordnern und werden über die **Paketliste** nachinstalliert, nicht als Dateien kopiert.
+> **Note:** Compiled KWin plugins (e.g. Rounded Corners) live in system directories and are reinstalled via the **package list**, not copied as files.
 
 ## Installation
 
 ```bash
 sudo pacman -S --needed git python python-pyqt6
 git clone https://github.com/redsoul1905/Savedesktopdesign.git
-cd savedesktopdesign
+cd Savedesktopdesign
 ./install.sh
 ```
 
-Danach findest du **SaveDesktopDesign** im Anwendungsmenü.
+You'll then find **SaveDesktopDesign** in your application menu.
 
-Ohne Installation direkt starten:
+Run directly without installing:
 
 ```bash
 python3 savedesktopdesign.py
 ```
 
-## Benutzung
+## Usage
 
-**Sichern (alter Rechner):**
-1. App starten → Tab **Sichern**
-2. Kategorien auswählen (Standard: alles) → **Backup erstellen**
-3. Die erzeugte `.tar.gz` auf USB-Stick / Cloud kopieren
+**Back up (old machine):**
+1. Launch the app → **Back up** tab
+2. Select categories (default: everything) → **Create backup**
+3. Copy the resulting `.tar.gz` to a USB drive / cloud storage
 
-**Wiederherstellen (neuer Rechner):**
-1. App starten → Tab **Wiederherstellen** → Archiv wählen
-2. **Pakete installieren** klicken (öffnet Terminal; nutzt `pacman`, `paru`/`yay` und `flatpak`)
-3. **Ab- und wieder anmelden**, damit KWin-Effekte und Design vollständig greifen
+**Restore (new machine):**
+1. Launch the app → **Restore** tab → choose the archive
+2. Click **Install packages** (opens a terminal; uses `pacman`, `paru`/`yay` and `flatpak`)
+3. **Log out and back in** so KWin effects and the design fully apply
 
-## Deinstallation
+## Uninstall
 
 ```bash
 ./install.sh --uninstall
 ```
 
-## Voraussetzungen
+## Requirements
 
-- Arch-basiertes System (CachyOS, EndeavourOS, Arch …) mit KDE Plasma
-- Python 3.10+ und `python-pyqt6`
-- Optional: `paru` oder `yay` für AUR-Pakete, `flatpak`
+- Arch-based system (CachyOS, EndeavourOS, Arch …) with KDE Plasma
+- Python 3.10+ and `python-pyqt6`
+- Optional: `paru` or `yay` for AUR packages, `flatpak`
 
-## Lizenz
+## License
 
-MIT — siehe [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
