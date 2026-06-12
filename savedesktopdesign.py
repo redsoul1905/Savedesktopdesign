@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.2.2"
+VERSION = "1.3"
 
 # ----------------------------------------------------------------------------
 # Übersetzungen / Translations
@@ -924,7 +924,6 @@ class MainWindow(QMainWindow):
     def install_packages(self):
         pkg_dir = HOME / ".savedesktopdesign-packages"
         script = pkg_dir / "install.sh"
-        helper = shutil.which("paru") or shutil.which("yay")
         lines = [
             "#!/usr/bin/env bash",
             "set -e",
@@ -939,11 +938,23 @@ class MainWindow(QMainWindow):
             else:
                 lines.append("echo 'pacman list found, but this is not an Arch system — skipping.'")
         if (pkg_dir / "pacman-foreign.txt").exists() and shutil.which("pacman"):
-            if helper:
-                lines.append("echo; echo '--- AUR ---'")
-                lines.append(f"{Path(helper).name} -S --needed - < pacman-foreign.txt || true")
-            else:
-                lines.append("echo 'No AUR helper (paru/yay) found — AUR packages: pacman-foreign.txt'")
+            lines += [
+                "echo; echo '--- AUR ---'",
+                # AUR-Helper automatisch nachinstallieren, falls keiner da ist
+                "if ! command -v paru >/dev/null 2>&1 && ! command -v yay >/dev/null 2>&1; then",
+                "  echo 'No AUR helper found - installing paru ...'",
+                "  sudo pacman -S --needed --noconfirm base-devel git",
+                "  rm -rf /tmp/sdd-paru",
+                "  git clone https://aur.archlinux.org/paru-bin.git /tmp/sdd-paru",
+                "  (cd /tmp/sdd-paru && makepkg -si --noconfirm) || echo 'paru installation failed'",
+                "fi",
+                'AURHELPER="$(command -v paru || command -v yay || true)"',
+                'if [ -n "$AURHELPER" ]; then',
+                '  "$AURHELPER" -S --needed - < pacman-foreign.txt || true',
+                "else",
+                "  echo 'Skipping AUR packages (no helper available) - see pacman-foreign.txt'",
+                "fi",
+            ]
         # --- Ubuntu / Debian ---
         if (pkg_dir / "apt-manual.txt").exists():
             if shutil.which("apt-get"):
