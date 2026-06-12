@@ -75,6 +75,11 @@ One command — pulls the latest version and reinstalls:
 ./install.sh --update
 ```
 
+> Installed an older version (before v1.2.1)? Run this once inside your cloned folder, afterwards `--update` is available:
+> ```bash
+> git pull && ./install.sh
+> ```
+
 Or do a completely fresh install (deletes the old folder first):
 
 ```bash
