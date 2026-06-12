@@ -67,6 +67,20 @@ python3 savedesktopdesign.py
 2. Click **Install packages** (opens a terminal; automatically uses `pacman`/`paru`/`yay`, `apt`, `dnf` or `flatpak` depending on your system)
 3. **Log out and back in** so KWin effects and the design fully apply
 
+## Update
+
+One command — pulls the latest version and reinstalls:
+
+```bash
+./install.sh --update
+```
+
+Or do a completely fresh install (deletes the old folder first):
+
+```bash
+rm -rf ~/Savedesktopdesign && git clone https://github.com/redsoul1905/Savedesktopdesign.git ~/Savedesktopdesign && cd ~/Savedesktopdesign && ./install.sh
+```
+
 ## Uninstall
 
 ```bash

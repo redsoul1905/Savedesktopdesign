@@ -7,11 +7,29 @@ BIN_DIR="$HOME/.local/bin"
 DESKTOP_FILE="$HOME/.local/share/applications/savedesktopdesign.desktop"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+REPO_URL="https://github.com/redsoul1905/Savedesktopdesign.git"
+
 if [[ "$1" == "--uninstall" ]]; then
     rm -rf "$APP_DIR"
     rm -f "$BIN_DIR/savedesktopdesign" "$DESKTOP_FILE"
-    echo "SaveDesktopDesign wurde entfernt."
+    echo "SaveDesktopDesign wurde entfernt. / SaveDesktopDesign has been removed."
     exit 0
+fi
+
+if [[ "$1" == "--update" ]]; then
+    echo "Updating SaveDesktopDesign ..."
+    if [[ -d "$SRC_DIR/.git" ]] && command -v git >/dev/null; then
+        git -C "$SRC_DIR" pull --ff-only
+    else
+        echo "No git repository found — downloading a fresh copy ..."
+        command -v git >/dev/null || { echo "git is required for updating."; exit 1; }
+        TMP_DIR="$(mktemp -d)"
+        git clone --depth 1 "$REPO_URL" "$TMP_DIR/repo"
+        cp -f "$TMP_DIR/repo/savedesktopdesign.py" "$TMP_DIR/repo/install.sh" "$SRC_DIR/"
+        chmod +x "$SRC_DIR/install.sh"
+        rm -rf "$TMP_DIR"
+    fi
+    exec "$SRC_DIR/install.sh"   # frisch installieren mit neuer Version
 fi
 
 # Abhängigkeit prüfen / check dependency
