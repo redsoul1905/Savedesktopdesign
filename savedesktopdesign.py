@@ -425,6 +425,10 @@ CATEGORIES: dict[str, list[str]] = {
         ".config/kded6rc",
         ".config/breezerc",
         ".config/oxygenrc",
+        ".config/klassyrc",                # Klassy-Fensterdekoration
+        ".config/klassy",                  # Klassy-Presets
+        ".config/lightlyrc",               # Lightly-Dekoration
+        ".config/sierrabreezeenhancedrc",  # SierraBreezeEnhanced
         ".config/kwalletrc",
         ".config/dolphinrc",
         ".config/konsolerc",
