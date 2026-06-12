@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.2"
+VERSION = "1.2.2"
 
 # ----------------------------------------------------------------------------
 # Übersetzungen / Translations
@@ -85,6 +85,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Ungültiges Archiv: kein 'home/'-Ordner enthalten.",
         "log_pkglists_saved": "Paketlisten gespeichert unter: ",
         "log_fontcache": "Schrift-Cache wird aktualisiert …",
+        "log_kwin_reload": "KWin-Einstellungen werden neu geladen …",
         "log_restored": "\n✔ Design wiederhergestellt!",
         "msg_restored_pkg": "Design wiederhergestellt!\n\nJetzt optional Pakete installieren und Plasma neu starten (oder ab- und anmelden), damit alles greift.",
         "msg_restored": "Design wiederhergestellt!\n\nPlasma neu starten (oder ab- und anmelden), damit alles greift.",
@@ -132,6 +133,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Invalid archive: no 'home/' folder found.",
         "log_pkglists_saved": "Package lists saved to: ",
         "log_fontcache": "Updating font cache …",
+        "log_kwin_reload": "Reloading KWin settings …",
         "log_restored": "\n✔ Design restored!",
         "msg_restored_pkg": "Design restored!\n\nOptionally install the packages now, then restart Plasma (or log out and back in) so everything takes effect.",
         "msg_restored": "Design restored!\n\nRestart Plasma (or log out and back in) so everything takes effect.",
@@ -179,6 +181,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Archive non valide : aucun dossier « home/ ».",
         "log_pkglists_saved": "Listes de paquets enregistrées dans : ",
         "log_fontcache": "Mise à jour du cache des polices …",
+        "log_kwin_reload": "Rechargement des paramètres KWin …",
         "log_restored": "\n✔ Design restauré !",
         "msg_restored_pkg": "Design restauré !\n\nInstallez éventuellement les paquets, puis redémarrez Plasma (ou déconnectez-vous et reconnectez-vous) pour tout appliquer.",
         "msg_restored": "Design restauré !\n\nRedémarrez Plasma (ou déconnectez-vous et reconnectez-vous) pour tout appliquer.",
@@ -226,6 +229,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Archivio non valido: cartella 'home/' mancante.",
         "log_pkglists_saved": "Elenchi pacchetti salvati in: ",
         "log_fontcache": "Aggiornamento della cache dei caratteri …",
+        "log_kwin_reload": "Ricaricamento delle impostazioni KWin …",
         "log_restored": "\n✔ Design ripristinato!",
         "msg_restored_pkg": "Design ripristinato!\n\nSe vuoi, installa ora i pacchetti, poi riavvia Plasma (o esci e rientra) per applicare tutto.",
         "msg_restored": "Design ripristinato!\n\nRiavvia Plasma (o esci e rientra) per applicare tutto.",
@@ -273,6 +277,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Archivo no válido: no contiene la carpeta 'home/'.",
         "log_pkglists_saved": "Listas de paquetes guardadas en: ",
         "log_fontcache": "Actualizando la caché de fuentes …",
+        "log_kwin_reload": "Recargando los ajustes de KWin …",
         "log_restored": "\n✔ ¡Diseño restaurado!",
         "msg_restored_pkg": "¡Diseño restaurado!\n\nOpcionalmente instala ahora los paquetes y reinicia Plasma (o cierra y vuelve a iniciar sesión) para que todo surta efecto.",
         "msg_restored": "¡Diseño restaurado!\n\nReinicia Plasma (o cierra y vuelve a iniciar sesión) para que todo surta efecto.",
@@ -320,6 +325,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Arquivo inválido: pasta 'home/' não encontrada.",
         "log_pkglists_saved": "Listas de pacotes salvas em: ",
         "log_fontcache": "Atualizando o cache de fontes …",
+        "log_kwin_reload": "Recarregando as configurações do KWin …",
         "log_restored": "\n✔ Design restaurado!",
         "msg_restored_pkg": "Design restaurado!\n\nOpcionalmente instale os pacotes agora e reinicie o Plasma (ou saia e entre novamente) para aplicar tudo.",
         "msg_restored": "Design restaurado!\n\nReinicie o Plasma (ou saia e entre novamente) para aplicar tudo.",
@@ -367,6 +373,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "err_invalid_archive": "Geçersiz arşiv: 'home/' klasörü yok.",
         "log_pkglists_saved": "Paket listeleri şuraya kaydedildi: ",
         "log_fontcache": "Yazı tipi önbelleği güncelleniyor …",
+        "log_kwin_reload": "KWin ayarları yeniden yükleniyor …",
         "log_restored": "\n✔ Tasarım geri yüklendi!",
         "msg_restored_pkg": "Tasarım geri yüklendi!\n\nİsterseniz şimdi paketleri kurun, ardından her şeyin etkinleşmesi için Plasma'yı yeniden başlatın (veya oturumu kapatıp açın).",
         "msg_restored": "Tasarım geri yüklendi!\n\nHer şeyin etkinleşmesi için Plasma'yı yeniden başlatın (veya oturumu kapatıp açın).",
@@ -653,6 +660,19 @@ class RestoreWorker(QThread):
 
                 self.log.emit(T("log_fontcache"))
                 subprocess.run(["fc-cache", "-f"], capture_output=True, timeout=300)
+
+                # KWin & Co. zwingen, die restaurierten Configs sofort zu laden —
+                # sonst überschreibt die laufende Sitzung sie beim Abmelden wieder
+                self.log.emit(T("log_kwin_reload"))
+                for qdbus in ("qdbus6", "qdbus", "qdbus-qt6", "qdbus-qt5"):
+                    if shutil.which(qdbus):
+                        subprocess.run([qdbus, "org.kde.KWin", "/KWin", "reconfigure"],
+                                       capture_output=True, timeout=30)
+                        break
+                for sycoca in ("kbuildsycoca6", "kbuildsycoca5"):
+                    if shutil.which(sycoca):
+                        subprocess.run([sycoca], capture_output=True, timeout=120)
+                        break
 
                 self.progress.emit(100)
                 self.finished_ok.emit(has_packages)
