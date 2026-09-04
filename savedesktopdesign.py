@@ -14,6 +14,7 @@ Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe
 import io
 import json
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -24,7 +25,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QSettings, QThread, pyqtSignal
+from PyQt6.QtCore import QSettings, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout,
@@ -34,7 +35,7 @@ from PyQt6.QtWidgets import (
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.3"
+VERSION = "1.3.3"
 
 # ----------------------------------------------------------------------------
 # Übersetzungen / Translations
@@ -91,6 +92,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Design wiederhergestellt!\n\nPlasma neu starten (oder ab- und anmelden), damit alles greift.",
         "msg_restore_failed": "Restore fehlgeschlagen — Details im Protokoll.",
         "msg_no_terminal": "Kein Terminal gefunden. Bitte manuell ausführen:\n",
+        "msg_no_pkglists": "Keine Paketlisten gefunden. Bitte zuerst ein Backup wiederherstellen, das Paketlisten enthält.",
+        "msg_term_failed": "Das Terminal konnte nicht gestartet werden. Führe den Befehl manuell im Terminal aus:",
+        "log_pkg_terminal": "Terminal zur Paketinstallation geöffnet …",
+        "msg_confirm_pkg": "Jetzt Pakete installieren? Es öffnet sich ein Terminal, das nach deinem sudo-Passwort fragt. Gefundene Listen:",
+        "msg_pkg_opened": "Ein Terminal wurde geöffnet — folge dort den Anweisungen (sudo-Passwort eingeben). Falls kein Fenster erscheint, führe diesen Befehl manuell im Terminal aus:",
+        "msg_busy": "Es läuft bereits ein Vorgang. Bitte warte, bis er abgeschlossen ist.",
+        "msg_busy_close": "Ein Vorgang läuft noch. Das Fenster kann erst danach geschlossen werden.",
         "msg_confirm_plasma": "Plasma jetzt neu starten? Der Desktop ist kurz weg.",
     },
     "en": {
@@ -139,6 +147,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Design restored!\n\nRestart Plasma (or log out and back in) so everything takes effect.",
         "msg_restore_failed": "Restore failed — see log for details.",
         "msg_no_terminal": "No terminal found. Please run manually:\n",
+        "msg_no_pkglists": "No package lists found. Please restore a backup that contains package lists first.",
+        "msg_term_failed": "Could not start the terminal. Run this command manually in a terminal:",
+        "log_pkg_terminal": "Opened a terminal to install packages …",
+        "msg_confirm_pkg": "Install packages now? A terminal will open and ask for your sudo password. Lists found:",
+        "msg_pkg_opened": "A terminal was opened — follow the instructions there (enter your sudo password). If no window appears, run this command manually in a terminal:",
+        "msg_busy": "Another operation is already running. Please wait until it has finished.",
+        "msg_busy_close": "An operation is still running. The window can only be closed once it has finished.",
         "msg_confirm_plasma": "Restart Plasma now? The desktop will disappear briefly.",
     },
     "fr": {
@@ -187,6 +202,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Design restauré !\n\nRedémarrez Plasma (ou déconnectez-vous et reconnectez-vous) pour tout appliquer.",
         "msg_restore_failed": "Échec de la restauration — détails dans le journal.",
         "msg_no_terminal": "Aucun terminal trouvé. Veuillez exécuter manuellement :\n",
+        "msg_no_pkglists": "Aucune liste de paquets trouvée. Restaurez d'abord une sauvegarde contenant des listes de paquets.",
+        "msg_term_failed": "Impossible de démarrer le terminal. Exécutez cette commande manuellement dans un terminal :",
+        "log_pkg_terminal": "Terminal ouvert pour l'installation des paquets …",
+        "msg_confirm_pkg": "Installer les paquets maintenant ? Un terminal s'ouvrira et demandera votre mot de passe sudo. Listes trouvées :",
+        "msg_pkg_opened": "Un terminal a été ouvert — suivez-y les instructions (saisissez votre mot de passe sudo). Si aucune fenêtre n'apparaît, exécutez cette commande manuellement dans un terminal :",
+        "msg_busy": "Une opération est déjà en cours. Veuillez attendre qu'elle se termine.",
+        "msg_busy_close": "Une opération est encore en cours. La fenêtre ne pourra être fermée qu'après.",
         "msg_confirm_plasma": "Redémarrer Plasma maintenant ? Le bureau disparaîtra brièvement.",
     },
     "it": {
@@ -235,6 +257,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Design ripristinato!\n\nRiavvia Plasma (o esci e rientra) per applicare tutto.",
         "msg_restore_failed": "Ripristino non riuscito — dettagli nel registro.",
         "msg_no_terminal": "Nessun terminale trovato. Esegui manualmente:\n",
+        "msg_no_pkglists": "Nessun elenco di pacchetti trovato. Ripristina prima un backup che contenga gli elenchi dei pacchetti.",
+        "msg_term_failed": "Impossibile avviare il terminale. Esegui questo comando manualmente in un terminale:",
+        "log_pkg_terminal": "Terminale aperto per l'installazione dei pacchetti …",
+        "msg_confirm_pkg": "Installare ora i pacchetti? Si aprirà un terminale che chiederà la password sudo. Elenchi trovati:",
+        "msg_pkg_opened": "È stato aperto un terminale — segui lì le istruzioni (inserisci la password sudo). Se non compare alcuna finestra, esegui questo comando manualmente in un terminale:",
+        "msg_busy": "È già in corso un'operazione. Attendi che sia terminata.",
+        "msg_busy_close": "Un'operazione è ancora in corso. La finestra potrà essere chiusa solo al termine.",
         "msg_confirm_plasma": "Riavviare Plasma adesso? Il desktop sparirà per un momento.",
     },
     "es": {
@@ -283,6 +312,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "¡Diseño restaurado!\n\nReinicia Plasma (o cierra y vuelve a iniciar sesión) para que todo surta efecto.",
         "msg_restore_failed": "La restauración falló — detalles en el registro.",
         "msg_no_terminal": "No se encontró ninguna terminal. Ejecuta manualmente:\n",
+        "msg_no_pkglists": "No se encontraron listas de paquetes. Restaura primero una copia de seguridad que contenga listas de paquetes.",
+        "msg_term_failed": "No se pudo iniciar la terminal. Ejecuta este comando manualmente en una terminal:",
+        "log_pkg_terminal": "Se abrió una terminal para instalar los paquetes …",
+        "msg_confirm_pkg": "¿Instalar los paquetes ahora? Se abrirá una terminal que pedirá tu contraseña de sudo. Listas encontradas:",
+        "msg_pkg_opened": "Se abrió una terminal — sigue allí las instrucciones (introduce tu contraseña de sudo). Si no aparece ninguna ventana, ejecuta este comando manualmente en una terminal:",
+        "msg_busy": "Ya hay una operación en curso. Espera a que termine.",
+        "msg_busy_close": "Todavía hay una operación en curso. La ventana solo se puede cerrar cuando haya terminado.",
         "msg_confirm_plasma": "¿Reiniciar Plasma ahora? El escritorio desaparecerá un momento.",
     },
     "pt": {
@@ -331,6 +367,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Design restaurado!\n\nReinicie o Plasma (ou saia e entre novamente) para aplicar tudo.",
         "msg_restore_failed": "Falha na restauração — detalhes no registro.",
         "msg_no_terminal": "Nenhum terminal encontrado. Execute manualmente:\n",
+        "msg_no_pkglists": "Nenhuma lista de pacotes encontrada. Restaure primeiro um backup que contenha listas de pacotes.",
+        "msg_term_failed": "Não foi possível iniciar o terminal. Execute este comando manualmente em um terminal:",
+        "log_pkg_terminal": "Terminal aberto para instalar os pacotes …",
+        "msg_confirm_pkg": "Instalar os pacotes agora? Um terminal será aberto e pedirá sua senha do sudo. Listas encontradas:",
+        "msg_pkg_opened": "Um terminal foi aberto — siga as instruções lá (digite sua senha do sudo). Se nenhuma janela aparecer, execute este comando manualmente em um terminal:",
+        "msg_busy": "Já há uma operação em andamento. Aguarde até que ela termine.",
+        "msg_busy_close": "Uma operação ainda está em andamento. A janela só pode ser fechada depois disso.",
         "msg_confirm_plasma": "Reiniciar o Plasma agora? A área de trabalho sumirá por um instante.",
     },
     "tr": {
@@ -379,6 +422,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_restored": "Tasarım geri yüklendi!\n\nHer şeyin etkinleşmesi için Plasma'yı yeniden başlatın (veya oturumu kapatıp açın).",
         "msg_restore_failed": "Geri yükleme başarısız — ayrıntılar günlükte.",
         "msg_no_terminal": "Terminal bulunamadı. Lütfen elle çalıştırın:\n",
+        "msg_no_pkglists": "Paket listesi bulunamadı. Lütfen önce paket listeleri içeren bir yedeği geri yükleyin.",
+        "msg_term_failed": "Terminal başlatılamadı. Bu komutu terminalde elle çalıştırın:",
+        "log_pkg_terminal": "Paket kurulumu için terminal açıldı …",
+        "msg_confirm_pkg": "Paketler şimdi kurulsun mu? Sudo parolanızı soran bir terminal açılacak. Bulunan listeler:",
+        "msg_pkg_opened": "Bir terminal açıldı — oradaki yönergeleri izleyin (sudo parolanızı girin). Hiçbir pencere görünmezse bu komutu terminalde elle çalıştırın:",
+        "msg_busy": "Zaten bir işlem sürüyor. Lütfen bitmesini bekleyin.",
+        "msg_busy_close": "Bir işlem hâlâ sürüyor. Pencere ancak bittikten sonra kapatılabilir.",
         "msg_confirm_plasma": "Plasma şimdi yeniden başlatılsın mı? Masaüstü kısa süreliğine kaybolur.",
     },
 }
@@ -408,6 +458,11 @@ def detect_language(settings: QSettings) -> str:
 CATEGORIES: dict[str, list[str]] = {
     "cat_plasma": [
         ".config/kdeglobals",
+        ".config/kdedefaults",              # Global-Theme-Vorgaben (Plasma 5.24+/6)
+        ".config/plasma-localerc",
+        ".config/kactivitymanagerdrc",
+        ".config/systemsettingsrc",
+        ".config/plasma-workspace",         # Autostart-/Env-Skripte der Sitzung
         ".config/kwinrc",
         ".config/kwinrulesrc",
         ".config/kglobalshortcutsrc",
@@ -503,6 +558,11 @@ def gather_package_lists() -> dict[str, str]:
             out = _run_cmd(cmd)
             if out:
                 lists[fname] = out
+
+    if shutil.which("pacman-conf"):                       # aktivierte Repos
+        out = _run_cmd(["pacman-conf", "--repo-list"])
+        if out:
+            lists["pacman-repos.txt"] = out
 
     if shutil.which("apt-mark"):                          # Ubuntu / Debian
         out = _run_cmd(["apt-mark", "showmanual"])
@@ -641,19 +701,22 @@ class RestoreWorker(QThread):
                 self.progress.emit(30)
 
                 src_home = tmpp / "home"
-                if not src_home.exists():
+                pkg_dir = tmpp / "packages"
+                # Ein reines Paketlisten-Backup (keine Kategorie angehakt) hat
+                # kein home/ — das darf den Restore nicht abbrechen.
+                if not src_home.exists() and not pkg_dir.exists():
                     self.failed.emit(T("err_invalid_archive"))
                     return
 
-                entries = list(src_home.iterdir())
-                total = max(len(entries), 1)
-                for i, entry in enumerate(entries, 1):
-                    self._copy_into_home(entry, src_home)
-                    self.progress.emit(30 + int(i / total * 60))
+                if src_home.exists():
+                    entries = list(src_home.iterdir())
+                    total = max(len(entries), 1)
+                    for i, entry in enumerate(entries, 1):
+                        self._copy_into_home(entry, src_home)
+                        self.progress.emit(30 + int(i / total * 60))
 
                 # Paketlisten ins Home legen, damit sie nach dem Restore greifbar sind
                 has_packages = False
-                pkg_dir = tmpp / "packages"
                 if pkg_dir.exists():
                     dest = HOME / ".savedesktopdesign-packages"
                     dest.mkdir(exist_ok=True)
@@ -662,26 +725,43 @@ class RestoreWorker(QThread):
                     has_packages = True
                     self.log.emit(T("log_pkglists_saved") + str(dest))
 
-                self.log.emit(T("log_fontcache"))
-                subprocess.run(["fc-cache", "-f"], capture_output=True, timeout=300)
-
-                # KWin & Co. zwingen, die restaurierten Configs sofort zu laden —
-                # sonst überschreibt die laufende Sitzung sie beim Abmelden wieder
-                self.log.emit(T("log_kwin_reload"))
-                for qdbus in ("qdbus6", "qdbus", "qdbus-qt6", "qdbus-qt5"):
-                    if shutil.which(qdbus):
-                        subprocess.run([qdbus, "org.kde.KWin", "/KWin", "reconfigure"],
-                                       capture_output=True, timeout=30)
-                        break
-                for sycoca in ("kbuildsycoca6", "kbuildsycoca5"):
-                    if shutil.which(sycoca):
-                        subprocess.run([sycoca], capture_output=True, timeout=120)
-                        break
+                if src_home.exists():
+                    self._post_restore()
 
                 self.progress.emit(100)
                 self.finished_ok.emit(has_packages)
         except Exception:
             self.failed.emit(traceback.format_exc())
+
+    def _post_restore(self):
+        """Schrift-Cache, KWin und sycoca auffrischen. Fehlt eines der
+        Werkzeuge, ist das kein Grund, den bereits erfolgreichen Restore
+        als fehlgeschlagen zu melden — daher jeder Schritt einzeln gekapselt."""
+        if shutil.which("fc-cache"):
+            self.log.emit(T("log_fontcache"))
+            try:
+                subprocess.run(["fc-cache", "-f"], capture_output=True, timeout=300)
+            except (OSError, subprocess.SubprocessError) as e:
+                self.log.emit(f"{T('log_skipped')} fc-cache ({e})")
+
+        # KWin & Co. zwingen, die restaurierten Configs sofort zu laden —
+        # sonst überschreibt die laufende Sitzung sie beim Abmelden wieder
+        self.log.emit(T("log_kwin_reload"))
+        for qdbus in ("qdbus6", "qdbus", "qdbus-qt6", "qdbus-qt5"):
+            if shutil.which(qdbus):
+                try:
+                    subprocess.run([qdbus, "org.kde.KWin", "/KWin", "reconfigure"],
+                                   capture_output=True, timeout=30)
+                except (OSError, subprocess.SubprocessError) as e:
+                    self.log.emit(f"{T('log_skipped')} {qdbus} ({e})")
+                break
+        for sycoca in ("kbuildsycoca6", "kbuildsycoca5"):
+            if shutil.which(sycoca):
+                try:
+                    subprocess.run([sycoca], capture_output=True, timeout=120)
+                except (OSError, subprocess.SubprocessError) as e:
+                    self.log.emit(f"{T('log_skipped')} {sycoca} ({e})")
+                break
 
     def _copy_into_home(self, entry: Path, src_root: Path):
         rel = entry.relative_to(src_root)
@@ -731,8 +811,31 @@ class MainWindow(QMainWindow):
         _current_lang = detect_language(self.settings)
         self.setWindowIcon(QIcon.fromTheme("preferences-desktop-theme"))
         self.resize(720, 660)
-        self.worker = None
+        # Getrennte Referenzen: ein gemeinsames self.worker konnte einen noch
+        # laufenden QThread verdrängen -> "QThread: Destroyed while running".
+        self.backup_worker = None
+        self.restore_worker = None
         self._build_ui()
+
+    # ---------------- Worker-Verwaltung ----------------
+    def _worker_running(self) -> bool:
+        return any(w is not None and w.isRunning()
+                   for w in (self.backup_worker, self.restore_worker))
+
+    def _set_busy(self, busy: bool):
+        """Während eines Jobs Buttons und Sprachwahl sperren: ein zweiter
+        Worker würde den laufenden Thread verdrängen, ein Sprachwechsel
+        würde die Widgets neu bauen, an denen seine Signale hängen."""
+        self.backup_btn.setEnabled(not busy)
+        self.restore_btn.setEnabled(not busy)
+        self.lang_combo.setEnabled(not busy)
+
+    def closeEvent(self, event):
+        if self._worker_running():
+            QMessageBox.information(self, APP_NAME, T("msg_busy_close"))
+            event.ignore()
+        else:
+            event.accept()
 
     # ---------------- UI-Aufbau (bei Sprachwechsel neu) ----------------
     def _build_ui(self):
@@ -805,6 +908,9 @@ class MainWindow(QMainWindow):
         return w
 
     def start_backup(self):
+        if self._worker_running():
+            QMessageBox.information(self, APP_NAME, T("msg_busy"))
+            return
         cats = [c for c, cb in self.cat_checks.items() if cb.isChecked()]
         if not cats and not self.pkg_check.isChecked():
             QMessageBox.warning(self, APP_NAME, T("msg_select_one"))
@@ -817,23 +923,24 @@ class MainWindow(QMainWindow):
         if not dest.endswith(".tar.gz"):
             dest += ".tar.gz"
 
-        self.backup_btn.setEnabled(False)
+        self._set_busy(True)
+        self.backup_progress.setValue(0)
         self.backup_log.clear()
         self.backup_log.append(T("log_creating"))
-        self.worker = BackupWorker(dest, cats, self.pkg_check.isChecked())
-        self.worker.log.connect(self.backup_log.append)
-        self.worker.progress.connect(self.backup_progress.setValue)
-        self.worker.finished_ok.connect(self._backup_done)
-        self.worker.failed.connect(self._backup_fail)
-        self.worker.start()
+        self.backup_worker = BackupWorker(dest, cats, self.pkg_check.isChecked())
+        self.backup_worker.log.connect(self.backup_log.append)
+        self.backup_worker.progress.connect(self.backup_progress.setValue)
+        self.backup_worker.finished_ok.connect(self._backup_done)
+        self.backup_worker.failed.connect(self._backup_fail)
+        self.backup_worker.start()
 
     def _backup_done(self, info: str):
-        self.backup_btn.setEnabled(True)
+        self._set_busy(False)
         self.backup_log.append(T("done_prefix") + info)
         QMessageBox.information(self, APP_NAME, f"{T('msg_backup_done')}\n{info}")
 
     def _backup_fail(self, err: str):
-        self.backup_btn.setEnabled(True)
+        self._set_busy(False)
         self.backup_log.append(T("err_prefix") + err)
         QMessageBox.critical(self, APP_NAME, T("msg_backup_failed"))
 
@@ -858,7 +965,9 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.restore_btn)
 
         self.pkg_btn = QPushButton(QIcon.fromTheme("system-software-install"), T("btn_packages"))
-        self.pkg_btn.setEnabled(False)
+        # IMMER aktiv: ein Klick muss garantiert eine sichtbare Reaktion erzeugen.
+        # Fehlen Paketlisten, sagt _install_packages es per Dialog — nie stumm.
+        self.pkg_btn.setEnabled(True)
         self.pkg_btn.clicked.connect(self.install_packages)
         lay.addWidget(self.pkg_btn)
 
@@ -876,6 +985,9 @@ class MainWindow(QMainWindow):
         return w
 
     def start_restore(self):
+        if self._worker_running():
+            QMessageBox.information(self, APP_NAME, T("msg_busy"))
+            return
         archive, _ = QFileDialog.getOpenFileName(
             self, T("dlg_open"), str(HOME), T("dlg_archive_filter"))
         if not archive:
@@ -902,39 +1014,82 @@ class MainWindow(QMainWindow):
         if QMessageBox.question(self, APP_NAME, msg) != QMessageBox.StandardButton.Yes:
             return
 
-        self.restore_btn.setEnabled(False)
+        self._set_busy(True)
+        self.restore_progress.setValue(0)
         self.restore_log.clear()
-        self.worker = RestoreWorker(archive)
-        self.worker.log.connect(self.restore_log.append)
-        self.worker.progress.connect(self.restore_progress.setValue)
-        self.worker.finished_ok.connect(self._restore_done)
-        self.worker.failed.connect(self._restore_fail)
-        self.worker.start()
+        self.restore_worker = RestoreWorker(archive)
+        self.restore_worker.log.connect(self.restore_log.append)
+        self.restore_worker.progress.connect(self.restore_progress.setValue)
+        self.restore_worker.finished_ok.connect(self._restore_done)
+        self.restore_worker.failed.connect(self._restore_fail)
+        self.restore_worker.start()
 
     def _restore_done(self, has_packages: bool):
-        self.restore_btn.setEnabled(True)
+        self._set_busy(False)
         self.plasma_btn.setEnabled(True)
-        self.pkg_btn.setEnabled(has_packages)
+        # pkg_btn bleibt grundsätzlich aktiv (siehe _build_restore_tab) — nie deaktivieren
         self.restore_log.append(T("log_restored"))
         QMessageBox.information(
             self, APP_NAME,
             T("msg_restored_pkg") if has_packages else T("msg_restored"))
 
     def _restore_fail(self, err: str):
-        self.restore_btn.setEnabled(True)
+        self._set_busy(False)
         self.restore_log.append(T("err_prefix") + err)
         QMessageBox.critical(self, APP_NAME, T("msg_restore_failed"))
 
-    def install_packages(self):
+    def _has_pkg_lists(self) -> bool:
+        """True, wenn nach einem Restore Paketlisten im Home liegen."""
         pkg_dir = HOME / ".savedesktopdesign-packages"
+        if not pkg_dir.is_dir():
+            return False
+        return any((pkg_dir / n).exists() for n in (
+            "pacman-explicit.txt", "pacman-foreign.txt",
+            "apt-manual.txt", "dnf-packages.txt", "flatpak.txt"))
+
+    def install_packages(self):
+        try:
+            self._install_packages()
+        except Exception:
+            err = traceback.format_exc()
+            self.restore_log.append(T("err_prefix") + err)
+            QMessageBox.critical(self, APP_NAME, T("err_prefix") + err)
+
+    def _install_packages(self):
+        pkg_dir = HOME / ".savedesktopdesign-packages"
+        if not self._has_pkg_lists():
+            QMessageBox.warning(
+                self, APP_NAME,
+                T("msg_no_pkglists") + f"\n\n({pkg_dir})")
+            return
+
+        # Garantierte Sicht-Rückmeldung: zeigt, welche Listen gefunden wurden,
+        # bevor irgendein Terminal startet. Klick kann nie stumm bleiben.
+        found = [n for n in (
+            "pacman-explicit.txt", "pacman-foreign.txt",
+            "apt-manual.txt", "dnf-packages.txt", "flatpak.txt")
+            if (pkg_dir / n).exists()]
+        if QMessageBox.question(
+                self, APP_NAME,
+                T("msg_confirm_pkg") + "\n\n" + ", ".join(found)
+                ) != QMessageBox.StandardButton.Yes:
+            return
+
         script = pkg_dir / "install.sh"
         lines = [
             "#!/usr/bin/env bash",
-            "set -e",
             'cd "$(dirname "$0")"',
             "echo '=== SaveDesktopDesign ==='",
         ]
         # --- Arch / CachyOS ---
+        if (pkg_dir / "pacman-repos.txt").exists() and shutil.which("pacman-conf"):
+            lines += [
+                "echo; echo '--- Repos vom alten Gerät / repos on the old machine ---'",
+                "cat pacman-repos.txt",
+                "echo 'Active here:'; pacman-conf --repo-list",
+                "echo 'Missing repos must be enabled in /etc/pacman.conf first,'",
+                "echo 'otherwise their packages will be skipped below.'",
+            ]
         if (pkg_dir / "pacman-explicit.txt").exists():
             if shutil.which("pacman"):
                 lines.append("echo; echo '--- pacman ---'")
@@ -943,7 +1098,8 @@ class MainWindow(QMainWindow):
                 lines.append("echo 'pacman list found, but this is not an Arch system — skipping.'")
         if (pkg_dir / "pacman-foreign.txt").exists() and shutil.which("pacman"):
             lines += [
-                "echo; echo '--- AUR ---'",
+                "echo; echo '--- AUR (Glass, Rounded Corners, Klassy, Krohnkite …) ---'",
+                "echo 'Packages in list:'; cat pacman-foreign.txt; echo",
                 # AUR-Helper automatisch nachinstallieren, falls keiner da ist
                 "if ! command -v paru >/dev/null 2>&1 && ! command -v yay >/dev/null 2>&1; then",
                 "  echo 'No AUR helper found - installing paru ...'",
@@ -954,7 +1110,9 @@ class MainWindow(QMainWindow):
                 "fi",
                 'AURHELPER="$(command -v paru || command -v yay || true)"',
                 'if [ -n "$AURHELPER" ]; then',
-                '  "$AURHELPER" -S --needed - < pacman-foreign.txt || true',
+                '  echo "Using AUR helper: $AURHELPER"',
+                '  "$AURHELPER" -S --needed --noconfirm - < pacman-foreign.txt || \\',
+                '    "$AURHELPER" -S --needed - < pacman-foreign.txt || true',
                 "else",
                 "  echo 'Skipping AUR packages (no helper available) - see pacman-foreign.txt'",
                 "fi",
@@ -963,7 +1121,7 @@ class MainWindow(QMainWindow):
         if (pkg_dir / "apt-manual.txt").exists():
             if shutil.which("apt-get"):
                 lines.append("echo; echo '--- apt ---'")
-                lines.append("sudo apt-get update")
+                lines.append("sudo apt-get update || true")
                 lines.append("xargs -r -a apt-manual.txt sudo apt-get install -y --ignore-missing || true")
             else:
                 lines.append("echo 'apt list found, but apt is not available — skipping.'")
@@ -982,22 +1140,49 @@ class MainWindow(QMainWindow):
                 lines.append("xargs -r -a flatpak.txt -I{} flatpak install -y --noninteractive flathub {} || true")
             else:
                 lines.append("echo 'flatpak list found, but flatpak is not installed — skipping.'")
-        lines.append("echo; echo 'Done!'; read -r -p 'Enter …'")
+        lines.append("echo; echo '=== Done! ==='; read -r -p 'Press Enter to close …'")
         script.write_text("\n".join(lines))
         script.chmod(0o755)
 
-        term = (shutil.which("konsole") or shutil.which("gnome-terminal")
-                or shutil.which("xfce4-terminal") or shutil.which("alacritty")
-                or shutil.which("xterm"))
-        if not term:
+        # Terminal je nach Emulator korrekt aufrufen; konsole als eigenes Fenster,
+        # das bei Fehlern offen bleibt (--hold), damit man die Meldung sieht.
+        konsole = shutil.which("konsole")
+        gnome = shutil.which("gnome-terminal")
+        xfce = shutil.which("xfce4-terminal")
+        alacritty = shutil.which("alacritty")
+        kitty = shutil.which("kitty")
+        xterm = shutil.which("xterm")
+        # xfce4-terminal und xterm bekommen eine Kommandozeile als String —
+        # ohne Quoting bricht jeder Pfad mit Leerzeichen.
+        script_q = shlex.quote(str(script))
+        if konsole:
+            cmd = [konsole, "--separate", "--hold", "-e", "bash", str(script)]
+        elif gnome:
+            cmd = [gnome, "--", "bash", str(script)]
+        elif xfce:
+            cmd = [xfce, "--hold", "-e", f"bash {script_q}"]
+        elif kitty:
+            cmd = [kitty, "bash", str(script)]
+        elif alacritty:
+            cmd = [alacritty, "-e", "bash", str(script)]
+        elif xterm:
+            cmd = [xterm, "-hold", "-e", f"bash {script_q}"]
+        else:
             QMessageBox.warning(self, APP_NAME, T("msg_no_terminal") + str(script))
             return
-        if "konsole" in term:
-            subprocess.Popen([term, "-e", "bash", str(script)])
-        elif "gnome-terminal" in term:
-            subprocess.Popen([term, "--", "bash", str(script)])
-        else:
-            subprocess.Popen([term, "-e", f"bash {script}"])
+
+        manual = f"bash {script_q}"
+        try:
+            subprocess.Popen(cmd)
+            self.restore_log.append(T("log_pkg_terminal"))
+            # Info inkl. manuellem Befehl als Rückfallebene, falls kein
+            # Terminalfenster erscheint (z. B. ungewöhnlicher Emulator).
+            QMessageBox.information(
+                self, APP_NAME, T("msg_pkg_opened") + f"\n\n{manual}")
+        except Exception as e:
+            QMessageBox.warning(
+                self, APP_NAME,
+                f"{T('msg_term_failed')}\n\n{e}\n\n{T('msg_no_terminal')}{manual}")
 
     def restart_plasma(self):
         if QMessageBox.question(

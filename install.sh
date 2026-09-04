@@ -19,7 +19,15 @@ fi
 if [[ "$1" == "--update" ]]; then
     echo "Updating SaveDesktopDesign ..."
     if [[ -d "$SRC_DIR/.git" ]] && command -v git >/dev/null; then
-        git -C "$SRC_DIR" pull --ff-only
+        if ! git -C "$SRC_DIR" diff --quiet || ! git -C "$SRC_DIR" diff --cached --quiet; then
+            echo "Local changes in $SRC_DIR — commit or stash them first:"
+            echo "  git -C \"$SRC_DIR\" stash"
+            exit 1
+        fi
+        if ! git -C "$SRC_DIR" pull --ff-only; then
+            echo "git pull failed (diverged branch?). Fix the repo manually or re-clone."
+            exit 1
+        fi
     else
         echo "No git repository found — downloading a fresh copy ..."
         command -v git >/dev/null || { echo "git is required for updating."; exit 1; }
