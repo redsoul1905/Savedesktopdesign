@@ -1,6 +1,6 @@
 # SaveDesktopDesign
 
-**Current version: 1.4.0** · [Changelog](#changelog)
+**Current version: 1.5.0** · [Changelog](#changelog)
 
 Backs up your **entire KDE Plasma design from A to Z into a single file** — and restores it on a new machine with one click.
 
@@ -69,8 +69,18 @@ python3 savedesktopdesign.py
 
 **Restore (new machine):**
 1. Launch the app → **Restore** tab → choose the archive
-2. Click **Install packages** (opens a terminal; automatically uses `pacman`/`paru`/`yay`, `apt`, `dnf` or `flatpak` depending on your system)
-3. **Log out and back in** so KWin effects and the design fully apply
+2. Pick which categories should come back — you don't have to take the whole archive. Leave **Back up the current state first** ticked so you can undo the restore.
+3. Click **Install packages** (opens a terminal; automatically uses `pacman`/`paru`/`yay`, `apt`, `dnf` or `flatpak` depending on your system)
+4. **Log out and back in** so KWin effects and the design fully apply
+
+Not happy with the result? **Roll back to the state before the last restore** puts your previous settings back. Note that it restores what was overwritten — files the restore *added* stay, so a newly installed icon theme remains on disk.
+
+**The archive carries the app itself**, so a brand-new machine needs neither git nor an install first:
+
+```bash
+tar xzf plasma-design-2026-09-04.tar.gz app/savedesktopdesign.py
+python3 app/savedesktopdesign.py
+```
 
 ## Update
 
@@ -108,6 +118,13 @@ rm -rf ~/Savedesktopdesign && git clone https://github.com/redsoul1905/Savedeskt
 - Optional: `paru`/`yay` for AUR packages, `flatpak`
 
 ## Changelog
+
+### v1.5.0
+
+- **A safety net under every restore.** Before anything is overwritten, the current state of exactly those paths is saved to `~/.savedesktopdesign-rollback.tar.gz`, and **Roll back to the state before the last restore** puts it back. Can be switched off per restore. It restores what was overwritten; files the restore added are not removed.
+- **Selective restore.** The restore dialog now lists the categories the archive contains and lets you pick — take the icons from the old machine without its three-monitor panel layout. Archives without a manifest keep the old behaviour and restore everything.
+- **The archive carries the app.** `savedesktopdesign.py` is bundled as `app/savedesktopdesign.py`, so a fresh machine needs no git clone and no install first: unpack that one file and run it.
+- Restores are now path-exact instead of merging whole top-level directories, which is what makes the selection and the rollback precise.
 
 ### v1.4.0
 

@@ -31,14 +31,14 @@ from pathlib import Path
 from PyQt6.QtCore import QSettings, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout,
-    QLabel, QMainWindow, QMessageBox, QProgressBar, QPushButton, QTabWidget,
-    QTextEdit, QVBoxLayout, QWidget,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+    QFileDialog, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
+    QProgressBar, QPushButton, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # Update über die GitHub-Releases — nur Standardbibliothek, kein Token.
 GITHUB_REPO = "redsoul1905/Savedesktopdesign"
@@ -121,6 +121,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "aktuell",
         "ver_update": "Update auf {new} verfügbar",
         "cb_autocheck": "Beim Start prüfen",
+        "dlg_restore_title": "Was soll zurückgespielt werden?",
+        "cb_rollback": "Vorher den aktuellen Zustand sichern (Rückholen möglich)",
+        "btn_rollback": "  Zustand vor der letzten Wiederherstellung zurückholen",
+        "log_rollback": "Sicherungskopie des aktuellen Zustands wird angelegt …",
+        "msg_no_rollback": "Keine Sicherungskopie vorhanden. Sie entsteht automatisch bei der nächsten Wiederherstellung.",
+        "msg_confirm_rollback": "Den Zustand von vor der letzten Wiederherstellung zurückholen?\n\nAngelegt: {when}",
+        "log_app_added": "  + SaveDesktopDesign fürs neue Gerät beigelegt",
         "msg_busy_close": "Ein Vorgang läuft noch. Das Fenster kann erst danach geschlossen werden.",
         "msg_confirm_plasma": "Plasma jetzt neu starten? Der Desktop ist kurz weg.",
     },
@@ -189,6 +196,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "up to date",
         "ver_update": "update to {new} available",
         "cb_autocheck": "Check at startup",
+        "dlg_restore_title": "What should be restored?",
+        "cb_rollback": "Back up the current state first (so you can roll back)",
+        "btn_rollback": "  Roll back to the state before the last restore",
+        "log_rollback": "Backing up the current state …",
+        "msg_no_rollback": "No rollback copy available. One is created automatically the next time you restore.",
+        "msg_confirm_rollback": "Roll back to the state from before the last restore?\n\nCreated: {when}",
+        "log_app_added": "  + SaveDesktopDesign bundled for the new machine",
         "msg_busy_close": "An operation is still running. The window can only be closed once it has finished.",
         "msg_confirm_plasma": "Restart Plasma now? The desktop will disappear briefly.",
     },
@@ -257,6 +271,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "à jour",
         "ver_update": "mise à jour {new} disponible",
         "cb_autocheck": "Vérifier au démarrage",
+        "dlg_restore_title": "Que faut-il restaurer ?",
+        "cb_rollback": "Sauvegarder d'abord l'état actuel (retour possible)",
+        "btn_rollback": "  Revenir à l'état d'avant la dernière restauration",
+        "log_rollback": "Sauvegarde de l'état actuel …",
+        "msg_no_rollback": "Aucune copie de secours disponible. Elle sera créée automatiquement lors de la prochaine restauration.",
+        "msg_confirm_rollback": "Revenir à l'état d'avant la dernière restauration ?\n\nCréée : {when}",
+        "log_app_added": "  + SaveDesktopDesign joint pour la nouvelle machine",
         "msg_busy_close": "Une opération est encore en cours. La fenêtre ne pourra être fermée qu'après.",
         "msg_confirm_plasma": "Redémarrer Plasma maintenant ? Le bureau disparaîtra brièvement.",
     },
@@ -325,6 +346,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "aggiornato",
         "ver_update": "aggiornamento {new} disponibile",
         "cb_autocheck": "Controlla all'avvio",
+        "dlg_restore_title": "Che cosa va ripristinato?",
+        "cb_rollback": "Salva prima lo stato attuale (ritorno possibile)",
+        "btn_rollback": "  Torna allo stato precedente all'ultimo ripristino",
+        "log_rollback": "Salvataggio dello stato attuale …",
+        "msg_no_rollback": "Nessuna copia di sicurezza disponibile. Verrà creata automaticamente al prossimo ripristino.",
+        "msg_confirm_rollback": "Tornare allo stato precedente all'ultimo ripristino?\n\nCreata: {when}",
+        "log_app_added": "  + SaveDesktopDesign incluso per la nuova macchina",
         "msg_busy_close": "Un'operazione è ancora in corso. La finestra potrà essere chiusa solo al termine.",
         "msg_confirm_plasma": "Riavviare Plasma adesso? Il desktop sparirà per un momento.",
     },
@@ -393,6 +421,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "actualizado",
         "ver_update": "actualización {new} disponible",
         "cb_autocheck": "Comprobar al inicio",
+        "dlg_restore_title": "¿Qué se debe restaurar?",
+        "cb_rollback": "Guardar antes el estado actual (permite volver atrás)",
+        "btn_rollback": "  Volver al estado anterior a la última restauración",
+        "log_rollback": "Guardando el estado actual …",
+        "msg_no_rollback": "No hay ninguna copia de seguridad. Se crea automáticamente en la próxima restauración.",
+        "msg_confirm_rollback": "¿Volver al estado anterior a la última restauración?\n\nCreada: {when}",
+        "log_app_added": "  + SaveDesktopDesign incluido para el equipo nuevo",
         "msg_busy_close": "Todavía hay una operación en curso. La ventana solo se puede cerrar cuando haya terminado.",
         "msg_confirm_plasma": "¿Reiniciar Plasma ahora? El escritorio desaparecerá un momento.",
     },
@@ -461,6 +496,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "atualizado",
         "ver_update": "atualização {new} disponível",
         "cb_autocheck": "Verificar ao iniciar",
+        "dlg_restore_title": "O que deve ser restaurado?",
+        "cb_rollback": "Salvar antes o estado atual (permite voltar atrás)",
+        "btn_rollback": "  Voltar ao estado anterior à última restauração",
+        "log_rollback": "Salvando o estado atual …",
+        "msg_no_rollback": "Nenhuma cópia de segurança disponível. Ela é criada automaticamente na próxima restauração.",
+        "msg_confirm_rollback": "Voltar ao estado anterior à última restauração?\n\nCriada: {when}",
+        "log_app_added": "  + SaveDesktopDesign incluído para o computador novo",
         "msg_busy_close": "Uma operação ainda está em andamento. A janela só pode ser fechada depois disso.",
         "msg_confirm_plasma": "Reiniciar o Plasma agora? A área de trabalho sumirá por um instante.",
     },
@@ -529,6 +571,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ver_current": "güncel",
         "ver_update": "{new} güncellemesi mevcut",
         "cb_autocheck": "Başlangıçta denetle",
+        "dlg_restore_title": "Neler geri yüklensin?",
+        "cb_rollback": "Önce mevcut durumu yedekle (geri dönülebilir)",
+        "btn_rollback": "  Son geri yüklemeden önceki duruma dön",
+        "log_rollback": "Mevcut durum yedekleniyor …",
+        "msg_no_rollback": "Yedek kopya yok. Bir sonraki geri yüklemede otomatik olarak oluşturulur.",
+        "msg_confirm_rollback": "Son geri yüklemeden önceki duruma dönülsün mü?\n\nOluşturulma: {when}",
+        "log_app_added": "  + Yeni cihaz için SaveDesktopDesign eklendi",
         "msg_busy_close": "Bir işlem hâlâ sürüyor. Pencere ancak bittikten sonra kapatılabilir.",
         "msg_confirm_plasma": "Plasma şimdi yeniden başlatılsın mı? Masaüstü kısa süreliğine kaybolur.",
     },
@@ -687,6 +736,45 @@ def gather_package_lists() -> dict[str, str]:
     return lists
 
 
+def rollback_path() -> Path:
+    """HOME wird in Tests umgebogen — daher bewusst zur Laufzeit bilden."""
+    return HOME / ".savedesktopdesign-rollback.tar.gz"
+
+
+def make_rollback(rel_paths: list[str], categories: list[str]) -> str:
+    """Sichert den aktuellen Zustand genau der Pfade, die gleich
+    überschrieben werden. Das Netz unter dem Restore."""
+    present = [r for r in rel_paths if os.path.lexists(HOME / r)]
+    if not present:
+        return ""
+    manifest = {
+        "app": APP_NAME,
+        "version": VERSION,
+        "rollback": True,
+        "created": datetime.now().isoformat(timespec="seconds"),
+        "hostname": socket.gethostname(),
+        "user": os.environ.get("USER", ""),
+        "categories": categories,
+        "with_packages": False,
+        "paths": present,
+    }
+    dest = rollback_path()
+    tmp = dest.with_name(dest.name + ".new")
+    with tarfile.open(tmp, "w:gz") as tar:
+        for rel in present:
+            try:
+                tar.add(HOME / rel, arcname=f"home/{rel}")
+            except (PermissionError, OSError):
+                pass
+        data = json.dumps(manifest, indent=2).encode()
+        info = tarfile.TarInfo("manifest.json")
+        info.size = len(data)
+        info.mtime = int(datetime.now().timestamp())
+        tar.addfile(info, io.BytesIO(data))
+    os.replace(tmp, dest)     # erst umbenennen, wenn das Archiv vollständig ist
+    return str(dest)
+
+
 def _version_tuple(v: str) -> tuple:
     """'v1.4.0' -> (1, 4, 0). Alles Unparsbare wird zu 0, damit ein
     ungewöhnlicher Tag-Name keinen Absturz auslöst."""
@@ -795,6 +883,16 @@ class BackupWorker(QThread):
                     done += 1
                     self.progress.emit(int(done / total * 100))
 
+                # Die App selbst beilegen: auf dem neuen Gerät genügt dann
+                # `tar xzf … app/savedesktopdesign.py` und ein Doppelklick.
+                try:
+                    tar.add(Path(__file__).resolve(),
+                            arcname="app/savedesktopdesign.py")
+                    manifest["app_included"] = True
+                    self.log.emit(T("log_app_added"))
+                except OSError as e:
+                    self.log.emit(f"{T('log_skipped')} app ({e})")
+
                 if self.with_packages:
                     self.log.emit(T("log_pkg_creating"))
                     for fname, content in gather_package_lists().items():
@@ -825,9 +923,12 @@ class RestoreWorker(QThread):
     finished_ok = pyqtSignal(bool)   # True wenn Paketlisten enthalten
     failed = pyqtSignal(str)
 
-    def __init__(self, archive: str):
+    def __init__(self, archive: str, categories: list[str] | None = None,
+                 rollback: bool = True):
         super().__init__()
         self.archive = archive
+        self.categories = categories   # None = alles aus dem Archiv
+        self.rollback = rollback
 
     @staticmethod
     def _extract_filter(member, path):
@@ -868,8 +969,41 @@ class RestoreWorker(QThread):
                     self.failed.emit(T("err_invalid_archive"))
                     return
 
+                manifest = {}
+                mf = tmpp / "manifest.json"
+                if mf.exists():
+                    try:
+                        manifest = json.loads(mf.read_text())
+                    except (ValueError, OSError):
+                        manifest = {}
+
+                # Aus dem Manifest wissen wir pfadgenau, was zurückkommt —
+                # und können danach filtern. Ohne Manifest (alte Archive)
+                # bleibt es beim bisherigen Verhalten: alles.
+                rel_paths = [str(r) for r in manifest.get("paths", [])]
+                if self.categories is not None and rel_paths:
+                    wanted = set()
+                    for cat in self.categories:
+                        wanted.update(CATEGORIES.get(cat, []))
+                    rel_paths = [r for r in rel_paths if r in wanted]
+
                 if src_home.exists():
-                    entries = list(src_home.iterdir())
+                    if self.rollback:
+                        self.log.emit(T("log_rollback"))
+                        try:
+                            roll = rel_paths or [r for v in CATEGORIES.values()
+                                                 for r in v]
+                            saved = make_rollback(
+                                roll, self.categories
+                                or manifest.get("categories", []))
+                            if saved:
+                                self.log.emit(f"  → {saved}")
+                        except Exception as e:
+                            self.log.emit(f"{T('log_skipped')} rollback ({e})")
+
+                    entries = ([src_home / r for r in rel_paths] if rel_paths
+                               else list(src_home.iterdir()))
+                    entries = [e for e in entries if os.path.lexists(e)]
                     total = max(len(entries), 1)
                     for i, entry in enumerate(entries, 1):
                         self._copy_into_home(entry, src_home)
@@ -963,6 +1097,48 @@ class RestoreWorker(QThread):
 # ----------------------------------------------------------------------------
 # GUI
 # ----------------------------------------------------------------------------
+class RestoreOptionsDialog(QDialog):
+    """Ersetzt die alte Ja/Nein-Rückfrage: welche Kategorien zurück sollen
+    und ob vorher der aktuelle Zustand gesichert wird."""
+
+    def __init__(self, parent, cats: list[str], info: str):
+        super().__init__(parent)
+        self.setWindowTitle(APP_NAME)
+        lay = QVBoxLayout(self)
+
+        head = QLabel(T("msg_confirm_restore"))
+        head.setWordWrap(True)
+        lay.addWidget(head)
+        if info:
+            details = QLabel(info)
+            details.setWordWrap(True)
+            lay.addWidget(details)
+
+        self.checks: dict[str, QCheckBox] = {}
+        if cats:
+            box = QGroupBox(T("dlg_restore_title"))
+            blay = QVBoxLayout(box)
+            for cat in cats:
+                cb = QCheckBox(T(cat))
+                cb.setChecked(True)
+                self.checks[cat] = cb
+                blay.addWidget(cb)
+            lay.addWidget(box)
+
+        self.rollback_cb = QCheckBox(T("cb_rollback"))
+        self.rollback_cb.setChecked(True)
+        lay.addWidget(self.rollback_cb)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                                   | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+    def selected(self) -> list[str]:
+        return [c for c, cb in self.checks.items() if cb.isChecked()]
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -995,6 +1171,7 @@ class MainWindow(QMainWindow):
         würde die Widgets neu bauen, an denen seine Signale hängen."""
         self.backup_btn.setEnabled(not busy)
         self.restore_btn.setEnabled(not busy)
+        self.rollback_btn.setEnabled(not busy)
         self.update_btn.setEnabled(not busy)
         self.lang_combo.setEnabled(not busy)
 
@@ -1156,6 +1333,12 @@ class MainWindow(QMainWindow):
         self.pkg_btn.clicked.connect(self.install_packages)
         lay.addWidget(self.pkg_btn)
 
+        self.rollback_btn = QPushButton(
+            QIcon.fromTheme("edit-undo"), T("btn_rollback"))
+        # Immer aktiv — fehlt die Sicherungskopie, sagt es der Dialog.
+        self.rollback_btn.clicked.connect(self.restore_rollback)
+        lay.addWidget(self.rollback_btn)
+
         self.plasma_btn = QPushButton(QIcon.fromTheme("system-reboot"), T("btn_plasma"))
         self.plasma_btn.setEnabled(False)
         self.plasma_btn.clicked.connect(self.restart_plasma)
@@ -1180,11 +1363,14 @@ class MainWindow(QMainWindow):
 
         # Manifest anzeigen
         info_txt = ""
+        cats: list[str] = []
         try:
             with tarfile.open(archive, "r:gz") as tar:
                 mf = tar.extractfile("manifest.json")
                 if mf:
                     m = json.loads(mf.read())
+                    cats = [c for c in m.get("categories", [])
+                            if isinstance(c, str) and c in CATEGORIES]
                     info_txt = (f"{T('mf_created')}: {m.get('created')}\n"
                                 f"{T('mf_host')}: {m.get('hostname')}\n"
                                 f"{T('mf_categories')}: {len(m.get('categories', []))}\n"
@@ -1193,21 +1379,44 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        msg = T("msg_confirm_restore")
-        if info_txt:
-            msg += f"\n\n{info_txt}"
-        if QMessageBox.question(self, APP_NAME, msg) != QMessageBox.StandardButton.Yes:
+        dlg = RestoreOptionsDialog(self, cats, info_txt)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
+        chosen = dlg.selected() if cats else None
+        if cats and not chosen:
+            QMessageBox.warning(self, APP_NAME, T("msg_select_one"))
+            return
+        self._start_restore(archive, chosen, dlg.rollback_cb.isChecked())
 
+    def _start_restore(self, archive: str, categories, rollback: bool):
         self._set_busy(True)
         self.restore_progress.setValue(0)
         self.restore_log.clear()
-        self.restore_worker = RestoreWorker(archive)
+        self.restore_worker = RestoreWorker(archive, categories, rollback)
         self.restore_worker.log.connect(self.restore_log.append)
         self.restore_worker.progress.connect(self.restore_progress.setValue)
         self.restore_worker.finished_ok.connect(self._restore_done)
         self.restore_worker.failed.connect(self._restore_fail)
         self.restore_worker.start()
+
+    def restore_rollback(self):
+        """Zurück auf den Zustand vor der letzten Wiederherstellung.
+        Erzeugt bewusst KEINE neue Sicherungskopie — sonst würde das
+        Quellarchiv beim Lesen überschrieben."""
+        if self._worker_running():
+            QMessageBox.information(self, APP_NAME, T("msg_busy"))
+            return
+        path = rollback_path()
+        if not path.is_file():
+            QMessageBox.information(self, APP_NAME, T("msg_no_rollback"))
+            return
+        when = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+            "%Y-%m-%d %H:%M")
+        if QMessageBox.question(
+                self, APP_NAME, T("msg_confirm_rollback").format(when=when)
+                ) != QMessageBox.StandardButton.Yes:
+            return
+        self._start_restore(str(path), None, False)
 
     def _restore_done(self, has_packages: bool):
         self._set_busy(False)
