@@ -1,6 +1,6 @@
 # SaveDesktopDesign
 
-**Current version: 1.3.3** · [Changelog](#changelog)
+**Current version: 1.4.0** · [Changelog](#changelog)
 
 Backs up your **entire KDE Plasma design from A to Z into a single file** — and restores it on a new machine with one click.
 
@@ -74,7 +74,11 @@ python3 savedesktopdesign.py
 
 ## Update
 
-One command — pulls the latest version and reinstalls:
+**From inside the app (v1.4.0 and newer):** click **Check for updates** in the top bar. It queries the latest GitHub release, shows you the release notes, and — if you confirm — replaces the installed file and offers to restart. No terminal, no git, no extra dependency.
+
+The downloaded file is only installed if it is recognisably this application and compiles without errors; the previous version is kept next to it as `savedesktopdesign.py.bak`. If you run the app from a git clone, the button points you to `./install.sh --update` instead of overwriting your working copy.
+
+**From a git clone:** one command — pulls the latest version and reinstalls:
 
 ```bash
 ./install.sh --update
@@ -104,6 +108,12 @@ rm -rf ~/Savedesktopdesign && git clone https://github.com/redsoul1905/Savedeskt
 - Optional: `paru`/`yay` for AUR packages, `flatpak`
 
 ## Changelog
+
+### v1.4.0
+
+- **One-click update from inside the app.** A **Check for updates** button in the top bar reads the latest GitHub release, shows its notes, and installs the new version on confirmation — then offers to restart. Uses only the Python standard library, no token and no extra dependency.
+- The update is written atomically and only after the download has been verified: it must be recognisably this application and compile cleanly, otherwise nothing is touched. The previous version stays as `savedesktopdesign.py.bak`.
+- Running from a git clone is detected — the button points to `./install.sh --update` rather than overwriting your working copy.
 
 ### v1.3.3
 Bug-fix release — every issue below was reproduced before it was fixed.

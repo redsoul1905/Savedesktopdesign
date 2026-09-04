@@ -22,6 +22,9 @@ import sys
 import tarfile
 import tempfile
 import traceback
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +38,14 @@ from PyQt6.QtWidgets import (
 
 HOME = Path.home()
 APP_NAME = "SaveDesktopDesign"
-VERSION = "1.3.3"
+VERSION = "1.4.0"
+
+# Update über die GitHub-Releases — nur Standardbibliothek, kein Token.
+GITHUB_REPO = "redsoul1905/Savedesktopdesign"
+RELEASE_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+RAW_URL = ("https://raw.githubusercontent.com/" + GITHUB_REPO
+           + "/{tag}/savedesktopdesign.py")
+MAX_DOWNLOAD = 2_000_000   # Obergrenze, damit ein kaputter Server uns nicht flutet
 
 # ----------------------------------------------------------------------------
 # Übersetzungen / Translations
@@ -98,6 +108,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Jetzt Pakete installieren? Es öffnet sich ein Terminal, das nach deinem sudo-Passwort fragt. Gefundene Listen:",
         "msg_pkg_opened": "Ein Terminal wurde geöffnet — folge dort den Anweisungen (sudo-Passwort eingeben). Falls kein Fenster erscheint, führe diesen Befehl manuell im Terminal aus:",
         "msg_busy": "Es läuft bereits ein Vorgang. Bitte warte, bis er abgeschlossen ist.",
+        "btn_update": "  Nach Updates suchen",
+        "upd_checking": "Suche nach Updates …",
+        "upd_current": "Du hast bereits die neueste Version ({cur}).",
+        "upd_available": "Neue Version {new} verfügbar — installiert ist {cur}.\n\nJetzt aktualisieren?",
+        "upd_installing": "Update wird geladen …",
+        "upd_done": "Update auf {new} installiert.\n\nDie Änderungen greifen nach einem Neustart der App. Jetzt neu starten?",
+        "upd_failed": "Update fehlgeschlagen:",
+        "upd_not_writable": "Die installierte Programmdatei ist nicht beschreibbar:\n{path}",
+        "upd_git_clone": "Dieser Ordner ist ein Git-Repository. Aktualisiere hier lieber mit:\n\n./install.sh --update",
+        "upd_no_release": "Auf GitHub ist noch kein Release veröffentlicht.",
         "msg_busy_close": "Ein Vorgang läuft noch. Das Fenster kann erst danach geschlossen werden.",
         "msg_confirm_plasma": "Plasma jetzt neu starten? Der Desktop ist kurz weg.",
     },
@@ -153,6 +173,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Install packages now? A terminal will open and ask for your sudo password. Lists found:",
         "msg_pkg_opened": "A terminal was opened — follow the instructions there (enter your sudo password). If no window appears, run this command manually in a terminal:",
         "msg_busy": "Another operation is already running. Please wait until it has finished.",
+        "btn_update": "  Check for updates",
+        "upd_checking": "Checking for updates …",
+        "upd_current": "You already have the latest version ({cur}).",
+        "upd_available": "Version {new} is available — you have {cur}.\n\nUpdate now?",
+        "upd_installing": "Downloading update …",
+        "upd_done": "Updated to {new}.\n\nThe changes take effect after a restart. Restart now?",
+        "upd_failed": "Update failed:",
+        "upd_not_writable": "The installed program file is not writable:\n{path}",
+        "upd_git_clone": "This folder is a Git repository. Update it with:\n\n./install.sh --update",
+        "upd_no_release": "No release has been published on GitHub yet.",
         "msg_busy_close": "An operation is still running. The window can only be closed once it has finished.",
         "msg_confirm_plasma": "Restart Plasma now? The desktop will disappear briefly.",
     },
@@ -208,6 +238,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Installer les paquets maintenant ? Un terminal s'ouvrira et demandera votre mot de passe sudo. Listes trouvées :",
         "msg_pkg_opened": "Un terminal a été ouvert — suivez-y les instructions (saisissez votre mot de passe sudo). Si aucune fenêtre n'apparaît, exécutez cette commande manuellement dans un terminal :",
         "msg_busy": "Une opération est déjà en cours. Veuillez attendre qu'elle se termine.",
+        "btn_update": "  Rechercher des mises à jour",
+        "upd_checking": "Recherche de mises à jour …",
+        "upd_current": "Vous avez déjà la dernière version ({cur}).",
+        "upd_available": "La version {new} est disponible — vous avez {cur}.\n\nMettre à jour maintenant ?",
+        "upd_installing": "Téléchargement de la mise à jour …",
+        "upd_done": "Mise à jour vers {new} effectuée.\n\nLes changements prennent effet après un redémarrage. Redémarrer maintenant ?",
+        "upd_failed": "Échec de la mise à jour :",
+        "upd_not_writable": "Le fichier du programme installé n'est pas modifiable :\n{path}",
+        "upd_git_clone": "Ce dossier est un dépôt Git. Mettez-le à jour avec :\n\n./install.sh --update",
+        "upd_no_release": "Aucune version n'a encore été publiée sur GitHub.",
         "msg_busy_close": "Une opération est encore en cours. La fenêtre ne pourra être fermée qu'après.",
         "msg_confirm_plasma": "Redémarrer Plasma maintenant ? Le bureau disparaîtra brièvement.",
     },
@@ -263,6 +303,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Installare ora i pacchetti? Si aprirà un terminale che chiederà la password sudo. Elenchi trovati:",
         "msg_pkg_opened": "È stato aperto un terminale — segui lì le istruzioni (inserisci la password sudo). Se non compare alcuna finestra, esegui questo comando manualmente in un terminale:",
         "msg_busy": "È già in corso un'operazione. Attendi che sia terminata.",
+        "btn_update": "  Cerca aggiornamenti",
+        "upd_checking": "Ricerca di aggiornamenti …",
+        "upd_current": "Hai già la versione più recente ({cur}).",
+        "upd_available": "È disponibile la versione {new} — hai la {cur}.\n\nAggiornare ora?",
+        "upd_installing": "Download dell'aggiornamento …",
+        "upd_done": "Aggiornato alla versione {new}.\n\nLe modifiche hanno effetto dopo un riavvio. Riavviare ora?",
+        "upd_failed": "Aggiornamento non riuscito:",
+        "upd_not_writable": "Il file del programma installato non è scrivibile:\n{path}",
+        "upd_git_clone": "Questa cartella è un repository Git. Aggiorna con:\n\n./install.sh --update",
+        "upd_no_release": "Su GitHub non è ancora stata pubblicata alcuna release.",
         "msg_busy_close": "Un'operazione è ancora in corso. La finestra potrà essere chiusa solo al termine.",
         "msg_confirm_plasma": "Riavviare Plasma adesso? Il desktop sparirà per un momento.",
     },
@@ -318,6 +368,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "¿Instalar los paquetes ahora? Se abrirá una terminal que pedirá tu contraseña de sudo. Listas encontradas:",
         "msg_pkg_opened": "Se abrió una terminal — sigue allí las instrucciones (introduce tu contraseña de sudo). Si no aparece ninguna ventana, ejecuta este comando manualmente en una terminal:",
         "msg_busy": "Ya hay una operación en curso. Espera a que termine.",
+        "btn_update": "  Buscar actualizaciones",
+        "upd_checking": "Buscando actualizaciones …",
+        "upd_current": "Ya tienes la versión más reciente ({cur}).",
+        "upd_available": "La versión {new} está disponible — tienes la {cur}.\n\n¿Actualizar ahora?",
+        "upd_installing": "Descargando la actualización …",
+        "upd_done": "Actualizado a {new}.\n\nLos cambios se aplican tras reiniciar. ¿Reiniciar ahora?",
+        "upd_failed": "La actualización falló:",
+        "upd_not_writable": "El archivo del programa instalado no se puede escribir:\n{path}",
+        "upd_git_clone": "Esta carpeta es un repositorio Git. Actualiza con:\n\n./install.sh --update",
+        "upd_no_release": "Todavía no se ha publicado ninguna versión en GitHub.",
         "msg_busy_close": "Todavía hay una operación en curso. La ventana solo se puede cerrar cuando haya terminado.",
         "msg_confirm_plasma": "¿Reiniciar Plasma ahora? El escritorio desaparecerá un momento.",
     },
@@ -373,6 +433,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Instalar os pacotes agora? Um terminal será aberto e pedirá sua senha do sudo. Listas encontradas:",
         "msg_pkg_opened": "Um terminal foi aberto — siga as instruções lá (digite sua senha do sudo). Se nenhuma janela aparecer, execute este comando manualmente em um terminal:",
         "msg_busy": "Já há uma operação em andamento. Aguarde até que ela termine.",
+        "btn_update": "  Procurar atualizações",
+        "upd_checking": "Procurando atualizações …",
+        "upd_current": "Você já tem a versão mais recente ({cur}).",
+        "upd_available": "A versão {new} está disponível — você tem a {cur}.\n\nAtualizar agora?",
+        "upd_installing": "Baixando a atualização …",
+        "upd_done": "Atualizado para {new}.\n\nAs alterações têm efeito após reiniciar. Reiniciar agora?",
+        "upd_failed": "Falha na atualização:",
+        "upd_not_writable": "O arquivo do programa instalado não pode ser gravado:\n{path}",
+        "upd_git_clone": "Esta pasta é um repositório Git. Atualize com:\n\n./install.sh --update",
+        "upd_no_release": "Ainda não há nenhuma release publicada no GitHub.",
         "msg_busy_close": "Uma operação ainda está em andamento. A janela só pode ser fechada depois disso.",
         "msg_confirm_plasma": "Reiniciar o Plasma agora? A área de trabalho sumirá por um instante.",
     },
@@ -428,6 +498,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "msg_confirm_pkg": "Paketler şimdi kurulsun mu? Sudo parolanızı soran bir terminal açılacak. Bulunan listeler:",
         "msg_pkg_opened": "Bir terminal açıldı — oradaki yönergeleri izleyin (sudo parolanızı girin). Hiçbir pencere görünmezse bu komutu terminalde elle çalıştırın:",
         "msg_busy": "Zaten bir işlem sürüyor. Lütfen bitmesini bekleyin.",
+        "btn_update": "  Güncellemeleri denetle",
+        "upd_checking": "Güncellemeler denetleniyor …",
+        "upd_current": "Zaten en son sürüme sahipsiniz ({cur}).",
+        "upd_available": "{new} sürümü mevcut — sizde {cur} var.\n\nŞimdi güncellensin mi?",
+        "upd_installing": "Güncelleme indiriliyor …",
+        "upd_done": "{new} sürümüne güncellendi.\n\nDeğişiklikler yeniden başlattıktan sonra etkin olur. Şimdi yeniden başlatılsın mı?",
+        "upd_failed": "Güncelleme başarısız:",
+        "upd_not_writable": "Kurulu program dosyası yazılabilir değil:\n{path}",
+        "upd_git_clone": "Bu klasör bir Git deposu. Şununla güncelleyin:\n\n./install.sh --update",
+        "upd_no_release": "GitHub'da henüz yayımlanmış bir sürüm yok.",
         "msg_busy_close": "Bir işlem hâlâ sürüyor. Pencere ancak bittikten sonra kapatılabilir.",
         "msg_confirm_plasma": "Plasma şimdi yeniden başlatılsın mı? Masaüstü kısa süreliğine kaybolur.",
     },
@@ -586,9 +666,67 @@ def gather_package_lists() -> dict[str, str]:
     return lists
 
 
+def _version_tuple(v: str) -> tuple:
+    """'v1.4.0' -> (1, 4, 0). Alles Unparsbare wird zu 0, damit ein
+    ungewöhnlicher Tag-Name keinen Absturz auslöst."""
+    parts = []
+    for chunk in v.strip().lstrip("vV").split("."):
+        digits = ""
+        for ch in chunk:
+            if not ch.isdigit():
+                break
+            digits += ch
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
 # ----------------------------------------------------------------------------
 # Worker-Threads
 # ----------------------------------------------------------------------------
+class UpdateWorker(QThread):
+    """Fragt das neueste GitHub-Release ab und lädt auf Wunsch die neue
+    Programmdatei. Bewusst nur Standardbibliothek — keine zusätzliche
+    Abhängigkeit und kein Token nötig."""
+    checked = pyqtSignal(str, str)      # Tag, Release-Notes
+    downloaded = pyqtSignal(str, str)   # Tag, Quelltext
+    no_release = pyqtSignal()
+    failed = pyqtSignal(str)
+
+    def __init__(self, tag: str = ""):
+        super().__init__()
+        self.tag = tag                  # leer = nur prüfen
+
+    def _get(self, url: str, accept: str) -> bytes:
+        req = urllib.request.Request(url, headers={
+            "Accept": accept,
+            "User-Agent": f"{APP_NAME}/{VERSION}",
+        })
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read(MAX_DOWNLOAD)
+
+    def run(self):
+        try:
+            if not self.tag:
+                data = json.loads(self._get(RELEASE_API,
+                                            "application/vnd.github+json"))
+                tag = str(data.get("tag_name") or "")
+                if not tag:
+                    self.no_release.emit()
+                    return
+                self.checked.emit(tag, str(data.get("body") or ""))
+            else:
+                url = RAW_URL.format(tag=urllib.parse.quote(self.tag, safe=""))
+                self.downloaded.emit(
+                    self.tag, self._get(url, "text/plain").decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and not self.tag:
+                self.no_release.emit()      # Repo hat noch kein Release
+            else:
+                self.failed.emit(f"HTTP {e.code} — {e.reason}")
+        except Exception as e:
+            self.failed.emit(f"{type(e).__name__}: {e}")
+
+
 class BackupWorker(QThread):
     log = pyqtSignal(str)
     progress = pyqtSignal(int)
@@ -815,12 +953,14 @@ class MainWindow(QMainWindow):
         # laufenden QThread verdrängen -> "QThread: Destroyed while running".
         self.backup_worker = None
         self.restore_worker = None
+        self.update_worker = None
         self._build_ui()
 
     # ---------------- Worker-Verwaltung ----------------
     def _worker_running(self) -> bool:
         return any(w is not None and w.isRunning()
-                   for w in (self.backup_worker, self.restore_worker))
+                   for w in (self.backup_worker, self.restore_worker,
+                             self.update_worker))
 
     def _set_busy(self, busy: bool):
         """Während eines Jobs Buttons und Sprachwahl sperren: ein zweiter
@@ -828,6 +968,7 @@ class MainWindow(QMainWindow):
         würde die Widgets neu bauen, an denen seine Signale hängen."""
         self.backup_btn.setEnabled(not busy)
         self.restore_btn.setEnabled(not busy)
+        self.update_btn.setEnabled(not busy)
         self.lang_combo.setEnabled(not busy)
 
     def closeEvent(self, event):
@@ -846,6 +987,10 @@ class MainWindow(QMainWindow):
 
         # Sprachauswahl oben rechts
         lang_lay = QHBoxLayout()
+        self.update_btn = QPushButton(
+            QIcon.fromTheme("system-software-update"), T("btn_update"))
+        self.update_btn.clicked.connect(self.check_update)
+        lang_lay.addWidget(self.update_btn)
         lang_lay.addStretch()
         lang_lay.addWidget(QLabel(T("lang_label")))
         self.lang_combo = QComboBox()
@@ -1183,6 +1328,89 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self, APP_NAME,
                 f"{T('msg_term_failed')}\n\n{e}\n\n{T('msg_no_terminal')}{manual}")
+
+    # ---------------- Update über das GitHub-Release ----------------
+    def _app_file(self) -> Path:
+        """Die laufende Programmdatei — genau die wird ersetzt."""
+        return Path(__file__).resolve()
+
+    def check_update(self):
+        if self._worker_running():
+            QMessageBox.information(self, APP_NAME, T("msg_busy"))
+            return
+        target = self._app_file()
+        # Im Git-Klon würde ein Überschreiben die Arbeitskopie zerschießen.
+        if (target.parent / ".git").is_dir():
+            QMessageBox.information(self, APP_NAME, T("upd_git_clone"))
+            return
+        if not os.access(target, os.W_OK):
+            QMessageBox.warning(self, APP_NAME,
+                                T("upd_not_writable").format(path=target))
+            return
+        self._set_busy(True)
+        self.update_btn.setText(T("upd_checking"))
+        self.update_worker = UpdateWorker()
+        self.update_worker.checked.connect(self._update_checked)
+        self.update_worker.no_release.connect(self._update_no_release)
+        self.update_worker.failed.connect(self._update_failed)
+        self.update_worker.start()
+
+    def _update_reset(self):
+        self._set_busy(False)
+        self.update_btn.setText(T("btn_update"))
+
+    def _update_no_release(self):
+        self._update_reset()
+        QMessageBox.information(self, APP_NAME, T("upd_no_release"))
+
+    def _update_failed(self, err: str):
+        self._update_reset()
+        QMessageBox.critical(self, APP_NAME, f"{T('upd_failed')}\n{err}")
+
+    def _update_checked(self, tag: str, notes: str):
+        self._update_reset()
+        if _version_tuple(tag) <= _version_tuple(VERSION):
+            QMessageBox.information(self, APP_NAME,
+                                    T("upd_current").format(cur=VERSION))
+            return
+        msg = T("upd_available").format(new=tag.lstrip("vV"), cur=VERSION)
+        if notes.strip():
+            msg += "\n\n" + notes.strip()[:1200]
+        if QMessageBox.question(self, APP_NAME,
+                                msg) != QMessageBox.StandardButton.Yes:
+            return
+        self._set_busy(True)
+        self.update_btn.setText(T("upd_installing"))
+        self.update_worker = UpdateWorker(tag)
+        self.update_worker.downloaded.connect(self._update_downloaded)
+        self.update_worker.failed.connect(self._update_failed)
+        self.update_worker.start()
+
+    def _update_downloaded(self, tag: str, src: str):
+        self._update_reset()
+        try:
+            target = self._app_file()
+            # Nichts ungeprüft an die Stelle des laufenden Programms schreiben:
+            # es muss diese App sein und fehlerfrei kompilieren.
+            if (len(src) < 20000 or APP_NAME not in src
+                    or "class MainWindow" not in src):
+                raise ValueError("downloaded file is not SaveDesktopDesign")
+            compile(src, str(target), "exec")
+            mode = target.stat().st_mode & 0o777
+            shutil.copy2(target, target.with_name(target.name + ".bak"))
+            tmp = target.with_name(target.name + ".new")
+            tmp.write_text(src, encoding="utf-8")
+            tmp.chmod(mode)
+            os.replace(tmp, target)      # atomar, kein halb geschriebenes Skript
+        except Exception as e:
+            QMessageBox.critical(
+                self, APP_NAME,
+                f"{T('upd_failed')}\n{type(e).__name__}: {e}")
+            return
+        if QMessageBox.question(
+                self, APP_NAME, T("upd_done").format(new=tag.lstrip("vV"))
+                ) == QMessageBox.StandardButton.Yes:
+            os.execv(sys.executable, [sys.executable, str(self._app_file())])
 
     def restart_plasma(self):
         if QMessageBox.question(
