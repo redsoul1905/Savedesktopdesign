@@ -28,7 +28,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QSettings, QThread, pyqtSignal
+from PyQt6.QtCore import QSettings, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout,
@@ -118,6 +118,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "Die installierte Programmdatei ist nicht beschreibbar:\n{path}",
         "upd_git_clone": "Dieser Ordner ist ein Git-Repository. Aktualisiere hier lieber mit:\n\n./install.sh --update",
         "upd_no_release": "Auf GitHub ist noch kein Release veröffentlicht.",
+        "ver_current": "aktuell",
+        "ver_update": "Update auf {new} verfügbar",
+        "cb_autocheck": "Beim Start prüfen",
         "msg_busy_close": "Ein Vorgang läuft noch. Das Fenster kann erst danach geschlossen werden.",
         "msg_confirm_plasma": "Plasma jetzt neu starten? Der Desktop ist kurz weg.",
     },
@@ -183,6 +186,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "The installed program file is not writable:\n{path}",
         "upd_git_clone": "This folder is a Git repository. Update it with:\n\n./install.sh --update",
         "upd_no_release": "No release has been published on GitHub yet.",
+        "ver_current": "up to date",
+        "ver_update": "update to {new} available",
+        "cb_autocheck": "Check at startup",
         "msg_busy_close": "An operation is still running. The window can only be closed once it has finished.",
         "msg_confirm_plasma": "Restart Plasma now? The desktop will disappear briefly.",
     },
@@ -248,6 +254,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "Le fichier du programme installé n'est pas modifiable :\n{path}",
         "upd_git_clone": "Ce dossier est un dépôt Git. Mettez-le à jour avec :\n\n./install.sh --update",
         "upd_no_release": "Aucune version n'a encore été publiée sur GitHub.",
+        "ver_current": "à jour",
+        "ver_update": "mise à jour {new} disponible",
+        "cb_autocheck": "Vérifier au démarrage",
         "msg_busy_close": "Une opération est encore en cours. La fenêtre ne pourra être fermée qu'après.",
         "msg_confirm_plasma": "Redémarrer Plasma maintenant ? Le bureau disparaîtra brièvement.",
     },
@@ -313,6 +322,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "Il file del programma installato non è scrivibile:\n{path}",
         "upd_git_clone": "Questa cartella è un repository Git. Aggiorna con:\n\n./install.sh --update",
         "upd_no_release": "Su GitHub non è ancora stata pubblicata alcuna release.",
+        "ver_current": "aggiornato",
+        "ver_update": "aggiornamento {new} disponibile",
+        "cb_autocheck": "Controlla all'avvio",
         "msg_busy_close": "Un'operazione è ancora in corso. La finestra potrà essere chiusa solo al termine.",
         "msg_confirm_plasma": "Riavviare Plasma adesso? Il desktop sparirà per un momento.",
     },
@@ -378,6 +390,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "El archivo del programa instalado no se puede escribir:\n{path}",
         "upd_git_clone": "Esta carpeta es un repositorio Git. Actualiza con:\n\n./install.sh --update",
         "upd_no_release": "Todavía no se ha publicado ninguna versión en GitHub.",
+        "ver_current": "actualizado",
+        "ver_update": "actualización {new} disponible",
+        "cb_autocheck": "Comprobar al inicio",
         "msg_busy_close": "Todavía hay una operación en curso. La ventana solo se puede cerrar cuando haya terminado.",
         "msg_confirm_plasma": "¿Reiniciar Plasma ahora? El escritorio desaparecerá un momento.",
     },
@@ -443,6 +458,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "O arquivo do programa instalado não pode ser gravado:\n{path}",
         "upd_git_clone": "Esta pasta é um repositório Git. Atualize com:\n\n./install.sh --update",
         "upd_no_release": "Ainda não há nenhuma release publicada no GitHub.",
+        "ver_current": "atualizado",
+        "ver_update": "atualização {new} disponível",
+        "cb_autocheck": "Verificar ao iniciar",
         "msg_busy_close": "Uma operação ainda está em andamento. A janela só pode ser fechada depois disso.",
         "msg_confirm_plasma": "Reiniciar o Plasma agora? A área de trabalho sumirá por um instante.",
     },
@@ -508,6 +526,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "upd_not_writable": "Kurulu program dosyası yazılabilir değil:\n{path}",
         "upd_git_clone": "Bu klasör bir Git deposu. Şununla güncelleyin:\n\n./install.sh --update",
         "upd_no_release": "GitHub'da henüz yayımlanmış bir sürüm yok.",
+        "ver_current": "güncel",
+        "ver_update": "{new} güncellemesi mevcut",
+        "cb_autocheck": "Başlangıçta denetle",
         "msg_busy_close": "Bir işlem hâlâ sürüyor. Pencere ancak bittikten sonra kapatılabilir.",
         "msg_confirm_plasma": "Plasma şimdi yeniden başlatılsın mı? Masaüstü kısa süreliğine kaybolur.",
     },
@@ -692,16 +713,17 @@ class UpdateWorker(QThread):
     no_release = pyqtSignal()
     failed = pyqtSignal(str)
 
-    def __init__(self, tag: str = ""):
+    def __init__(self, tag: str = "", timeout: int = 30):
         super().__init__()
         self.tag = tag                  # leer = nur prüfen
+        self.timeout = timeout
 
     def _get(self, url: str, accept: str) -> bytes:
         req = urllib.request.Request(url, headers={
             "Accept": accept,
             "User-Agent": f"{APP_NAME}/{VERSION}",
         })
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return resp.read(MAX_DOWNLOAD)
 
     def run(self):
@@ -954,7 +976,12 @@ class MainWindow(QMainWindow):
         self.backup_worker = None
         self.restore_worker = None
         self.update_worker = None
+        self.silent_worker = None
+        self._latest_tag = ""        # zuletzt von GitHub gemeldeter Tag
         self._build_ui()
+        if self.settings.value("check_updates_on_start", True, type=bool):
+            # Still: ändert nur die Versionsanzeige, öffnet nie einen Dialog.
+            QTimer.singleShot(1500, self._silent_check)
 
     # ---------------- Worker-Verwaltung ----------------
     def _worker_running(self) -> bool:
@@ -975,8 +1002,12 @@ class MainWindow(QMainWindow):
         if self._worker_running():
             QMessageBox.information(self, APP_NAME, T("msg_busy_close"))
             event.ignore()
-        else:
-            event.accept()
+            return
+        # Die stille Abfrage sperrt nichts, darf aber nicht mitten im Lauf
+        # zerstört werden — ihr Timeout begrenzt die Wartezeit auf 8 s.
+        if self.silent_worker is not None and self.silent_worker.isRunning():
+            self.silent_worker.wait()
+        event.accept()
 
     # ---------------- UI-Aufbau (bei Sprachwechsel neu) ----------------
     def _build_ui(self):
@@ -991,7 +1022,16 @@ class MainWindow(QMainWindow):
             QIcon.fromTheme("system-software-update"), T("btn_update"))
         self.update_btn.clicked.connect(self.check_update)
         lang_lay.addWidget(self.update_btn)
+        self.version_label = QLabel()
+        lang_lay.addWidget(self.version_label)
+        self._apply_version_label()
         lang_lay.addStretch()
+        self.autocheck_cb = QCheckBox(T("cb_autocheck"))
+        self.autocheck_cb.setChecked(
+            self.settings.value("check_updates_on_start", True, type=bool))
+        self.autocheck_cb.toggled.connect(
+            lambda on: self.settings.setValue("check_updates_on_start", on))
+        lang_lay.addWidget(self.autocheck_cb)
         lang_lay.addWidget(QLabel(T("lang_label")))
         self.lang_combo = QComboBox()
         for code, name in LANG_NAMES.items():
@@ -1355,6 +1395,35 @@ class MainWindow(QMainWindow):
         self.update_worker.failed.connect(self._update_failed)
         self.update_worker.start()
 
+    def _apply_version_label(self):
+        """Zeigt immer die installierte Version — und, sobald GitHub einmal
+        befragt wurde, ob sie aktuell ist. Überlebt den Sprachwechsel."""
+        text = f"v{VERSION}"
+        newer = (self._latest_tag
+                 and _version_tuple(self._latest_tag) > _version_tuple(VERSION))
+        if newer:
+            text += " · " + T("ver_update").format(
+                new=self._latest_tag.lstrip("vV"))
+        elif self._latest_tag:
+            text += " · " + T("ver_current")
+        self.version_label.setText(text)
+        self.version_label.setStyleSheet("font-weight: bold;" if newer else "")
+
+    def _silent_check(self):
+        """Startabfrage: setzt nur das Label. Kein Dialog, keine Busy-Sperre —
+        sie darf einen Backup- oder Restore-Klick nicht blockieren."""
+        if not self.autocheck_cb.isChecked():
+            return
+        if self.silent_worker is not None and self.silent_worker.isRunning():
+            return
+        self.silent_worker = UpdateWorker(timeout=8)
+        self.silent_worker.checked.connect(self._silent_result)
+        self.silent_worker.start()
+
+    def _silent_result(self, tag: str, notes: str):
+        self._latest_tag = tag
+        self._apply_version_label()
+
     def _update_reset(self):
         self._set_busy(False)
         self.update_btn.setText(T("btn_update"))
@@ -1369,6 +1438,8 @@ class MainWindow(QMainWindow):
 
     def _update_checked(self, tag: str, notes: str):
         self._update_reset()
+        self._latest_tag = tag
+        self._apply_version_label()
         if _version_tuple(tag) <= _version_tuple(VERSION):
             QMessageBox.information(self, APP_NAME,
                                     T("upd_current").format(cur=VERSION))

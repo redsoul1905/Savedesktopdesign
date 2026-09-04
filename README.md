@@ -112,6 +112,7 @@ rm -rf ~/Savedesktopdesign && git clone https://github.com/redsoul1905/Savedeskt
 ### v1.4.0
 
 - **One-click update from inside the app.** A **Check for updates** button in the top bar reads the latest GitHub release, shows its notes, and installs the new version on confirmation — then offers to restart. Uses only the Python standard library, no token and no extra dependency.
+- **The installed version is shown next to the button** and tells you where you stand: `v1.4.0`, `v1.4.0 · up to date`, or `v1.4.0 · update to 1.4.1 available` in bold. A silent check at startup keeps it current — it only ever changes that label, never opens a dialog, and never blocks a backup or restore. Turn it off with **Check at startup**; the choice is remembered.
 - The update is written atomically and only after the download has been verified: it must be recognisably this application and compile cleanly, otherwise nothing is touched. The previous version stays as `savedesktopdesign.py.bak`.
 - Running from a git clone is detected — the button points to `./install.sh --update` rather than overwriting your working copy.
 
